@@ -1,4 +1,6 @@
 {{$PROMETHEUS_SCRAPE_ANET := DefaultParam .PROMETHEUS_SCRAPE_ANET false}}
+{{$PROMETHEUS_METRIC_FILTER_ENABLED := DefaultParam .CL2_PROMETHEUS_METRIC_FILTER_ENABLED false}}
+{{$PROMETHEUS_METRIC_FILTER_KEEP := DefaultParam .CL2_PROMETHEUS_METRIC_FILTER_KEEP ""}}
 
 {{if $PROMETHEUS_SCRAPE_ANET}}
 apiVersion: monitoring.coreos.com/v1
@@ -11,6 +13,13 @@ metadata:
 spec:
   podMetricsEndpoints:
     - interval: 10m
+{{if $PROMETHEUS_METRIC_FILTER_ENABLED}}
+    metricRelabelings:
+    - action: keep
+      regex: {{$PROMETHEUS_METRIC_FILTER_KEEP}}
+      sourceLabels:
+      - __name__
+{{end}}
       port: advdpmetrics
   jobLabel: k8s-app
   selector:
