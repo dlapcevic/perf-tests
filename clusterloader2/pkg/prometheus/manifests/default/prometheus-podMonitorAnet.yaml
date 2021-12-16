@@ -12,7 +12,8 @@ metadata:
   namespace: monitoring
 spec:
   podMetricsEndpoints:
-    - interval: 10m
+    interval: 10m
+    port: advdpmetrics
 {{if $PROMETHEUS_METRIC_FILTER_ENABLED}}
     metricRelabelings:
     - action: keep
@@ -20,7 +21,6 @@ spec:
       sourceLabels:
       - __name__
 {{end}}
-      port: advdpmetrics
   jobLabel: k8s-app
   selector:
     matchLabels:
