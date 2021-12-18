@@ -1,0 +1,75 @@
+# LOAD_BALANCER_BACKEND_SIZE specifies the number of backend pods behind each LB
+{{$LOAD_BALANCER_BACKEND_SIZE := DefaultParam .CL2_LOAD_BALANCER_BACKEND_SIZE 10}}
+# LOAD_BALANCER_REPLICAS specifies the number of Load balancer type service
+{{$LOAD_BALANCER_REPLICAS := DefaultParam .CL2_LOAD_BALANCER_REPLICAS 1}}
+# LOAD_BALANCER_TYPE specifies the type of L4 LB created. Valid values are "INTERNAL" and "EXTERNAL"
+{{$LOAD_BALANCER_TYPE := DefaultParam .CL2_LOAD_BALANCER_TYPE "EXTERNAL"}}
+# $EXTERNAL_TRAFFIC_POLICY specifies the externalTrafficPolicy on LB type service. Valid values are "Cluster" and "Local"
+{{$EXTERNAL_TRAFFIC_POLICY := DefaultParam .CL2_EXTERNAL_TRAFFIC_POLICY "Cluster"}}
+# $NODE_SYNC_TIMEOUT specifies the timeout to wait for nodesync to complete
+{{$NODE_SYNC_TIMEOUT := DefaultParam .CL2_NODE_SYNC_TIMEOUT "30m"}}
+# L4LB_SYNC_TIMEOUT specifies the timeout to wait for LB creation to complete
+{{$L4LB_SYNC_TIMEOUT := DefaultParam .CL2_L4LB_SYNC_TIMEOUT "30m"}}
+
+{{$ENABLE_NETWORKPOLICIES := DefaultParam .CL2_ENABLE_NETWORKPOLICIES false}}
+
+# adding a fixed value for first version of the test, rate of pod creation not a concern yet.
+{{$qps := 20}}
+{{$namespaces := 1}}
+
+name: networkpolicy
+namespace:
+  number: {{$namespaces}}
+tuningSets:
+- name: ConstantQPS
+  qpsLoad:
+    qps: {{$qps}}
+steps:
+- name: Initialize Measurements
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: test = net-policy
+      operationTimeout: 15m
+- name: Creating deployments
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$LOAD_BALANCER_REPLICAS}}
+    tuningSet: LBConstantQPS
+    objectBundle:
+{{if $ENABLE_NETWORKPOLICIES}}
+    - basename: net-policy-dep
+      objectTemplatePath: networkpolicy.yaml
+{{end}}
+    - basename: net-policy-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$LOAD_BALANCER_BACKEND_SIZE}}
+- name: Wait for deployments to be ready
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+- name: Deleting deployments
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: LBConstantQPS
+    objectBundle:
+    - basename: net-policy-dep
+      objectTemplatePath: dep.yaml
+- name: Waiting for objects deletion to be completed
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
