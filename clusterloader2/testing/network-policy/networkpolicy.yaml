@@ -1,4 +1,5 @@
-{{if eq (Mod .Index 10) 0}} # Create for only 10% of deployments
+# {{if eq (Mod .Index 10) 0}} # Create for only 10% of deployments
+{{if eq (Mod .Index 3) 0}} # Create for only 33% of deployments
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
