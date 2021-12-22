@@ -41,7 +41,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: {{$LOAD_BALANCER_REPLICAS}}
-    tuningSet: LBConstantQPS
+    tuningSet: ConstantQPS
     objectBundle:
 {{if $ENABLE_NETWORKPOLICIES}}
     - basename: net-policy-dep
@@ -63,7 +63,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: LBConstantQPS
+    tuningSet: ConstantQPS
     objectBundle:
     - basename: net-policy-dep
       objectTemplatePath: dep.yaml
