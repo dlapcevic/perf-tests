@@ -29,7 +29,8 @@ spec:
       memory: 10Gi
       {{else}}
       # Start with 2Gi and add 2Gi for each 1K nodes.
-      memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+      # memory: {{MultiplyInt 2 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+      memory: {{MultiplyInt 6 (AddInt 3 (DivideInt .Nodes 1000))}}Gi
       {{end}}
   ruleSelector:
     matchLabels:
@@ -56,9 +57,11 @@ spec:
         resources:
           requests:
             # Start with 10Gi, add 10Gi for each 1K nodes.
-            storage: {{MultiplyInt 10 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+            # storage: {{MultiplyInt 10 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+            storage: {{MultiplyInt 20 (AddInt 2 (DivideInt .Nodes 1000))}}Gi
   query:
-    maxSamples: 100000000
+    # maxSamples: 100000000
+    maxSamples: 200000000
   {{if $PROMETHEUS_SCRAPE_WINDOWS_NODES}}
   additionalScrapeConfigs:
     name: windows-scrape-configs
