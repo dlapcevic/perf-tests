@@ -1,0 +1,11 @@
+CL2_EXEC_COMMAND:
+  - gcloud
+  - container
+  - clusters
+  - resize
+  - --node-pool=default
+  - --num-nodes=50
+  - --zone=${ZONE}
+  - --project=${PROJECT}
+  - -q
+  - ${CLUSTER_NAME}

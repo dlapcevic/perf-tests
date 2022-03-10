@@ -1,0 +1,13 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{.Name}}
+spec:
+  endpointSelector:
+    matchLabels:
+      test: cnp-crd
+  egress:
+    - toPorts:
+      - ports:
+        - port: {{.PortNumber}}
+          protocol: TCP

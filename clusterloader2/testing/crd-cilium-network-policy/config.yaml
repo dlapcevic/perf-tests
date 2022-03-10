@@ -1,0 +1,103 @@
+# Constants
+{{$CNP_WAIT_TIME := DefaultParam .CL2_CNP_WAIT_TIME "3m"}}
+{{$POLICY_COUNT := DefaultParam .CL2_POLICY_COUNT "3m"}}
+
+{{$DEP_BACKEND_SIZE := DefaultParam .DEP_BACKEND_SIZE 100}}
+{{$EXTERNAL_TRAFFIC_POLICY := DefaultParam .CL2_EXTERNAL_TRAFFIC_POLICY "Cluster"}}
+{{$ilbWaitTimeout := DefaultParam .CL2_ILB_WAIT_TIMEOUT "10m"}}
+{{$CNP_TEST_QPS := DefaultParam .CL2_CNP_TEST_QPS 20}}
+{{$ILB_RECOVERY_LABEL := "ilb-recovery"}}
+{{$namespaces := 1}}
+
+# Command to be executed
+{{$EXEC_COMMAND := DefaultParam .CL2_EXEC_COMMAND nil}}
+{{$EXEC_TIMEOUT := DefaultParam .CL2_EXEC_TIMEOUT "60m"}}
+{{$EXEC_ADDITIONAL_ARGUMENT := DefaultParam .CL2_EXEC_ADDITIONAL_ARGUMENT ""}}
+
+name: cnp-crd-test
+namespace:
+  number: {{$namespaces}}
+tuningSets:
+- name: ConstantQPS
+  qpsLoad:
+    qps: {{$CNP_TEST_QPS}}
+steps:
+- name: Start measurement for running pods
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      labelSelector: test = cnp-crd
+      operationTimeout: 15m
+- name: Create policies
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$POLICY_COUNT}}
+    tuningSet: ConstantQPS
+    objectBundle:
+    - basename: cnp-policy
+      objectTemplatePath: cilium-network-policy.yaml
+      templateFillMap:
+        PortNumber: "{{.Index}}"
+- name: Create deployments
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: ConstantQPS
+    objectBundle:
+    - basename: cnp-deployment
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$DEP_BACKEND_SIZE}}
+- name: Waiting for objects creation to be completed
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
+{{if $EXEC_COMMAND}}
+- name: Execute command
+  measurements:
+  - Identifier: ExecCommand
+    Method: Exec
+    Params:
+      timeout: {{$EXEC_TIMEOUT}}
+      command:
+      {{range $EXEC_COMMAND}}
+      - {{.}}
+      {{end}}
+      {{if $EXEC_ADDITIONAL_ARGUMENT}}
+      - {{$EXEC_ADDITIONAL_ARGUMENT}}
+      {{end}}
+{{end}}
+- name: Wait after exec command
+  measurements:
+  - Identifier: sleep
+    Method: Sleep
+    Params:
+      duration: {{$CNP_WAIT_TIME}}
+- name: Deleting policies and deployments
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: ConstantQPS
+    objectBundle:
+    - basename: cnp-policy
+      objectTemplatePath: cilium-network-policy.yaml
+    - basename: cnp-deployment
+      objectTemplatePath: dep.yaml
+- name: Waiting for objects deletion to be completed
+  measurements:
+  - Identifier: WaitForRunningDeployments
+    Method: WaitForControlledPodsRunning
+    Params:
+      action: gather
