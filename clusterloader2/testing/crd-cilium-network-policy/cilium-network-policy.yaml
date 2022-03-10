@@ -9,5 +9,6 @@ spec:
   egress:
     - toPorts:
       - ports:
-        - port: {{.PortNumber}}
+        # - port: {{.PortNumber}}
+        - port: "{{.Index}}"
           protocol: TCP

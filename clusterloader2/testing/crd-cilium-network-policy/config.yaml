@@ -1,6 +1,7 @@
 # Constants
 {{$CNP_WAIT_TIME := DefaultParam .CL2_CNP_WAIT_TIME "3m"}}
-{{$POLICY_COUNT := DefaultParam .CL2_POLICY_COUNT "3m"}}
+{{$POLICY_COUNT := DefaultParam .CL2_POLICY_COUNT 300}}
+{{$DEP_COUNT := DefaultParam .CL2_DEP_COUNT 1}}
 {{$DEP_BACKEND_SIZE := DefaultParam .DEP_BACKEND_SIZE 100}}
 {{$CNP_TEST_QPS := DefaultParam .CL2_CNP_TEST_QPS 20}}
 {{$namespaces := 1}}
@@ -38,14 +39,14 @@ steps:
     objectBundle:
     - basename: cnp-policy
       objectTemplatePath: cilium-network-policy.yaml
-      templateFillMap:
-        PortNumber: "{{.Index}}"
+      # templateFillMap:
+      #   PortNumber: "{{.Index}}"
 - name: Create deployments
   phases:
   - namespaceRange:
       min: 1
       max: {{$namespaces}}
-    replicasPerNamespace: 1
+    replicasPerNamespace: {{$DEP_COUNT}}
     tuningSet: ConstantQPS
     objectBundle:
     - basename: cnp-deployment
