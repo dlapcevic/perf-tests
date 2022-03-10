@@ -1,12 +1,8 @@
 # Constants
 {{$CNP_WAIT_TIME := DefaultParam .CL2_CNP_WAIT_TIME "3m"}}
 {{$POLICY_COUNT := DefaultParam .CL2_POLICY_COUNT "3m"}}
-
 {{$DEP_BACKEND_SIZE := DefaultParam .DEP_BACKEND_SIZE 100}}
-{{$EXTERNAL_TRAFFIC_POLICY := DefaultParam .CL2_EXTERNAL_TRAFFIC_POLICY "Cluster"}}
-{{$ilbWaitTimeout := DefaultParam .CL2_ILB_WAIT_TIMEOUT "10m"}}
 {{$CNP_TEST_QPS := DefaultParam .CL2_CNP_TEST_QPS 20}}
-{{$ILB_RECOVERY_LABEL := "ilb-recovery"}}
 {{$namespaces := 1}}
 
 # Command to be executed
