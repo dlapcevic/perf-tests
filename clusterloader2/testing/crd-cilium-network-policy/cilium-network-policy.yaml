@@ -5,10 +5,11 @@ metadata:
 spec:
   endpointSelector:
     matchLabels:
-      test: cnp-crd
+      test: cnp-crd-{{.Index}}
   egress:
     - toPorts:
       - ports:
         # - port: {{.PortNumber}}
-        - port: "{{.Index}}"
+        # - port: "{{.Index}}"
+        - port: 80
           protocol: TCP
