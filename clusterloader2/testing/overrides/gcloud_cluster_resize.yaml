@@ -3,7 +3,7 @@ CL2_EXEC_COMMAND:
   - container
   - clusters
   - resize
-  - --node-pool=default
+  - --node-pool=default-pool
   - --num-nodes=50
   - --zone=${ZONE}
   - --project=${PROJECT}
