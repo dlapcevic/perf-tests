@@ -5,7 +5,7 @@ CL2_EXEC_COMMAND:
   - resize
   - --node-pool=default-pool
   - --num-nodes=50
-  - --zone=${ZONE}
+  - --region=us-central1
   - --project=${PROJECT}
   - -q
   - ${CLUSTER_NAME}
