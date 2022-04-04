@@ -11,5 +11,5 @@ spec:
       - ports:
         # - port: {{.PortNumber}}
         # - port: "{{.Index}}"
-        - port: 80
+        - port: "80"
           protocol: TCP
