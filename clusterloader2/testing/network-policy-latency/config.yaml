@@ -29,24 +29,24 @@ steps:
 #     - basename: np-test-client-pods
 #       objectTemplatePath: manifests/prometheus-podMonitorNpClient.yaml
 
-# - name: Start measurements
-#   measurements:
-#   - Identifier: GetNetPolicyLatencyMetrics
-#     Method: GenericPrometheusQuery
-#     Params:
-#       action: start
-#       metricName: API request latency
-#       metricVersion: v1
-#       unit: ms
-#       queries:
-#         - name: Perc99
-#           query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
-#           # threshold: 60
-#         - name: Perc90
-#           query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
-#         - name: Perc50
-#           query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
-#           # threshold: 5
+- name: Start measurements
+  measurements:
+  - Identifier: GetNetPolicyLatencyMetrics
+    Method: GenericPrometheusQuery
+    Params:
+      action: start
+      metricName: API request latency
+      metricVersion: v1
+      unit: ms
+      queries:
+        - name: Perc99
+          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+          # threshold: 60
+        - name: Perc90
+          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+        - name: Perc50
+          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+          # threshold: 5
 
 - name: Creating service accounts, roles and rolebindings
   phases:
@@ -210,10 +210,10 @@ steps:
     Params:
       action: gather
 
-# - name: Gather measurements
-#   measurements:
-#   - Identifier: GetNetPolicyLatencyMetrics
-#     Method: GenericPrometheusQuery
-#     Params:
-#       action: gather
-#       # enableViolations: true
+- name: Gather measurements
+  measurements:
+  - Identifier: GetNetPolicyLatencyMetrics
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
+      # enableViolations: true
