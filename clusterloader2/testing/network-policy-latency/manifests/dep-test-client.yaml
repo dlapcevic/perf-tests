@@ -22,7 +22,7 @@ spec:
           name: npdelaymetrics
           protocol: TCP
         imagePullPolicy: Always
-        image: gcr.io/dordel-gke-dev/network-policy-latency-client:v0.0.1
+        image: gcr.io/gke-networking-test-images/scale-tests/network-policy-latency-client:v0.0.1
         # args:
         #   - -targetLabelSelector "group = net-policy-latency"
         command:

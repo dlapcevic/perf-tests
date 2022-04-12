@@ -182,24 +182,33 @@ steps:
      Params:
        duration: 3m
 
-# - name: Clean up resources
-#   phases:
-#   - namespaceRange:
-#       min: 1
-#       max: {{$namespaces}}
-#     replicasPerNamespace: 0
-#     tuningSet: defaultQPS
-#     objectBundle:
-#     - basename: np-dep
-#       objectTemplatePath: dep.yaml
-#     - basename: test-client-dep
-#       objectTemplatePath: manifests/dep-test-client.yaml
-#     - basename: np-latency-deny
-#       objectTemplatePath: networkpolicy-deny.yaml
-#     - basename: np-latency-allow
-#       objectTemplatePath: networkpolicy-allow.yaml
-#     - basename: np-latency-test
-#       objectTemplatePath: manifests/test-client-permissions.yaml
+- name: Clean up deployments and network policies
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: np-dep
+      objectTemplatePath: dep.yaml
+    - basename: np-latency-deny
+      objectTemplatePath: networkpolicy-deny.yaml
+    - basename: np-latency-allow
+      objectTemplatePath: networkpolicy-allow.yaml
+
+- name: Clean up test client deployments and permission resources
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: test-client-dep
+      objectTemplatePath: manifests/dep-test-client.yaml
+    - basename: np-latency-test
+      objectTemplatePath: manifests/test-client-permissions.yaml
 
 - name: Waiting for resource clean up to be completed for pods
   measurements:
