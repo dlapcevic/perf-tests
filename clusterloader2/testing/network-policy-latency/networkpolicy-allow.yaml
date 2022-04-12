@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{.Name}}
+  labels:
+    group: net-policy-latency
+    test: {{.TestLabelValue}}-{{.Index}}
+spec:
+  podSelector:
+    matchLabels:
+      test: {{.TestLabelValue}}-{{.Index}}
+  policyTypes:
+    - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          feature: exec
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cluster-loader

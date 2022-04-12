@@ -1,0 +1,212 @@
+name: network-policy-latency
+automanagednamespaces: 0
+namespace:
+  number: 5
+  prefix: test-b058zc
+  deletestalenamespaces: false
+  deleteautomanagednamespaces: true
+  enableexistingnamespaces: false
+steps:
+- phases:
+  - namespacerange:
+      min: 1
+      max: 5
+      basename: null
+    replicaspernamespace: 1
+    tuningset: defaultQPS
+    objectbundle:
+    - basename: np-latency-test
+      objecttemplatepath: manifests/serviceaccount.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+    - basename: np-latency-test
+      objecttemplatepath: manifests/role.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+    - basename: np-latency-test
+      objecttemplatepath: manifests/rolebinding.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+  measurements: []
+  module:
+    path: ""
+    params: {}
+  name: Creating service accounts, roles and rolebindings
+- phases:
+  - namespacerange:
+      min: 1
+      max: 5
+      basename: null
+    replicaspernamespace: 10
+    tuningset: defaultQPS
+    objectbundle:
+    - basename: np-latency-deny
+      objecttemplatepath: manifests/policy-deny.yaml
+      templatefillmap:
+        TargetLabelKey: group
+        TargetLabelValue: net-policy-latency
+      listunknownobjectoptions: null
+  measurements: []
+  module:
+    path: ""
+    params: {}
+  name: Creating deny network policies
+- phases: []
+  measurements:
+  - method: WaitForControlledPodsRunning
+    params:
+      action: start
+      labelSelector: group = net-policy-latency
+      operationTimeout: 2m
+    identifier: ""
+    instances:
+    - identifier: WaitForRunningDeployments
+      params:
+        apiVersion: apps/v1
+        kind: Deployment
+  module:
+    path: ""
+    params: {}
+  name: Wait for target pods - start measurement
+- phases:
+  - namespacerange:
+      min: 1
+      max: 5
+      basename: null
+    replicaspernamespace: 10
+    tuningset: defaultQPS
+    objectbundle:
+    - basename: np-dep
+      objecttemplatepath: dep.yaml
+      templatefillmap:
+        NumReplicas: 1
+        TargetLabelKey: group
+        TargetLabelValue: net-policy-latency
+        TestLabelValue: np-latency
+      listunknownobjectoptions: null
+  measurements: []
+  module:
+    path: ""
+    params: {}
+  name: Creating deployments
+- phases: []
+  measurements:
+  - method: WaitForControlledPodsRunning
+    params:
+      action: gather
+    identifier: ""
+    instances:
+    - identifier: WaitForRunningDeployments
+      params: {}
+  module:
+    path: ""
+    params: {}
+  name: Wait for target pods - gather measuerement
+- phases: []
+  measurements:
+  - method: WaitForControlledPodsRunning
+    params:
+      action: start
+      labelSelector: test = np-client
+      operationTimeout: 2m
+    identifier: ""
+    instances:
+    - identifier: WaitForTestClientPods
+      params:
+        apiVersion: apps/v1
+        kind: Deployment
+  module:
+    path: ""
+    params: {}
+  name: Wait for test client pods - start measurement
+- phases:
+  - namespacerange:
+      min: 1
+      max: 5
+      basename: null
+    replicaspernamespace: 1
+    tuningset: defaultQPS
+    objectbundle:
+    - basename: test-client-dep
+      objecttemplatepath: manifests/dep-test-client.yaml
+      templatefillmap:
+        ServiceAccountName: np-latency-test-0
+        TargetLabelSelector: group = net-policy-latency
+      listunknownobjectoptions: null
+  measurements: []
+  module:
+    path: ""
+    params: {}
+  name: Creating test client deployments
+- phases: []
+  measurements:
+  - method: WaitForControlledPodsRunning
+    params:
+      action: gather
+    identifier: ""
+    instances:
+    - identifier: WaitForTestClientPods
+      params: {}
+  module:
+    path: ""
+    params: {}
+  name: Wait for test client pods - gather measuerement
+- phases:
+  - namespacerange:
+      min: 1
+      max: 5
+      basename: null
+    replicaspernamespace: 10
+    tuningset: defaultQPS
+    objectbundle:
+    - basename: np-latency-allow
+      objecttemplatepath: manifests/policy-allow.yaml
+      templatefillmap:
+        TargetLabelKey: group
+        TargetLabelValue: net-policy-latency
+        TestLabelValue: np-latency
+      listunknownobjectoptions: null
+  measurements: []
+  module:
+    path: ""
+    params: {}
+  name: Creating allow network policies
+- phases: []
+  measurements:
+  - method: Sleep
+    params:
+      duration: 3m
+    identifier: Wait
+    instances: []
+  module:
+    path: ""
+    params: {}
+  name: Wait 3min for pods to be reached
+- phases: []
+  measurements:
+  - method: WaitForControlledPodsRunning
+    params:
+      action: gather
+    identifier: ""
+    instances:
+    - identifier: WaitForRunningDeployments
+      params: {}
+    - identifier: WaitForTestClientPods
+      params: {}
+  module:
+    path: ""
+    params: {}
+  name: Waiting for resource clean up to be completed for pods
+tuningsets:
+- name: defaultQPS
+  initialdelay: 0
+  qpsload:
+    qps: 20
+  randomizedload: null
+  steppedload: null
+  timelimitedload: null
+  randomizedtimelimitedload: null
+  parallelismlimitedload: null
+  globalqpsload: null
+chaosmonkey:
+  nodefailure: null

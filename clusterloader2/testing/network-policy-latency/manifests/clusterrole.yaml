@@ -1,0 +1,46 @@
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRole
+# metadata:
+#   name: prometheus-k8s-x
+# rules:
+# - apiGroups:
+#   - ""
+#   resources:
+#   - nodes/metrics
+#   - services
+#   - endpoints
+#   - pods
+#   verbs:
+#   - get
+#   - list
+#   - watch
+# - nonResourceURLs:
+#   - /metrics
+#   verbs:
+#   - get
+
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRole
+# metadata:
+#   name: {{.Name}}
+#   # name: net-policy-latency-test
+#   # namespace: tx
+# rules:
+#   - apiGroups: [""]
+#     resources: ["pods"]
+#     verbs: ["get", "list"]
+#   - apiGroups: ["networking.k8s.io"]
+#     resources: ["networkpolicies"]
+#     verbs: ["get", "list"]
+
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{.Name}}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list"]

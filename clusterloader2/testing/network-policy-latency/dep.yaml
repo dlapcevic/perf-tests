@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    {{.TargetLabelKey}}: {{.TargetLabelValue}}
+    # group: net-policy-latency
+    test: {{.TestLabelValue}}-{{.Index}}
+    # ns: {{.Namespace}}
+spec:
+  replicas: {{.NumReplicas}}
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        {{.TargetLabelKey}}: {{.TargetLabelValue}}
+        # group: net-policy-latency
+        test: {{.TestLabelValue}}-{{.Index}}
+        name: {{.Name}}
+    spec:
+      containers:
+      - name: {{.Name}}
+        image: nginx
+        ports:
+        - containerPort: 80

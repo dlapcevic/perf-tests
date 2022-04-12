@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    k8s-app: net-policy-client-pods
+  name: net-policy-client-pods
+  namespace: monitoring
+spec:
+  podMetricsEndpoints:
+    - interval: 10s
+      port: npdelaymetrics
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      test: np-client
+  # namespaceSelector:
+  #   matchNames:
+  #     - kube-system

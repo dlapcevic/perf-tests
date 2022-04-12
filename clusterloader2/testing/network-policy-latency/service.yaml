@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Name}}
+  labels:
+    group: net-policy-latency
+    test: {{.TestLabelValue}}-{{.Index}}
+spec:
+  selector:
+    test: {{.TestLabelValue}}-{{.Index}}
+  ports:
+  - port: 80
+    targetPort: 80

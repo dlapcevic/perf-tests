@@ -1,0 +1,136 @@
+{{$PODS_PER_DEP := DefaultParam .CL2_PODS_PER_DEP 1}}
+
+{{$testLabelValue := "np-latency"}}
+{{$qps := 20}}
+{{$namespaces := 3}}
+{{$replicasPerNamespace := 1}}
+
+name: network-policy-latency
+namespace:
+  number: {{$namespaces}}
+tuningSets:
+- name: defaultQPS
+  qpsLoad:
+    qps: {{$qps}}
+steps:
+#- name: Creating services
+#  phases:
+#  - namespaceRange:
+#      min: 1
+#      max: {{$namespaces}}
+#    replicasPerNamespace: {{$replicasPerNamespace}}
+#    tuningSet: defaultQPS
+#    objectBundle:
+#    - basename: np-latency
+#      objectTemplatePath: service.yaml
+#      templateFillMap:
+#        TestLabelValue: {{$testLabelValue}}
+
+- name: Wait for pods - start measurement
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      labelSelector: group = net-policy-latency
+      operationTimeout: 15m
+
+# - name: Creating deny network policies
+#   phases:
+#   - namespaceRange:
+#       min: 1
+#       max: {{$namespaces}}
+#     replicasPerNamespace: {{$replicasPerNamespace}}
+#     tuningSet: defaultQPS
+#     objectBundle:
+#     - basename: np-latency-allow
+#       objectTemplatePath: networkpolicy-deny.yaml
+#       templateFillMap:
+#         TestLabelValue: {{$testLabelValue}}
+
+- name: Creating deployments
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$replicasPerNamespace}}
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: np-dep
+      objectTemplatePath: dep.yaml
+      templateFillMap:
+        NumReplicas: {{$PODS_PER_DEP}}
+        TestLabelValue: {{$testLabelValue}}
+
+- name: Wait for pods - gather measuerement
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForRunningDeployments
+    Params:
+      action: gather
+
+# - name: Network policy enforcement latency measurement - 'start'
+#   measurements:
+#   - Identifier: NetworkPolicyEnforcementLatency
+#     Method: NetworkPolicyEnforcementLatency
+#     Params:
+#       action: start
+#       labelSelector: group = net-policy-latency
+
+# - name: Creating allow network policies
+#   phases:
+#   - namespaceRange:
+#       min: 1
+#       max: {{$namespaces}}
+#     replicasPerNamespace: {{$replicasPerNamespace}}
+#     tuningSet: defaultQPS
+#     objectBundle:
+#     - basename: np-latency-deny
+#       objectTemplatePath: networkpolicy-allow.yaml
+#       templateFillMap:
+#         TestLabelValue: {{$testLabelValue}}
+
+# - name: Network policy enforcement latency measurement - 'waitForReady'
+#   measurements:
+#   - Identifier: NetworkPolicyEnforcementLatency
+#     Method: NetworkPolicyEnforcementLatency
+#     Params:
+#       action: waitForReady
+#       labelSelector: group = net-policy-latency
+
+# - name: Network policy enforcement latency measurement - 'gather'
+#   measurements:
+#   - Identifier: NetworkPolicyEnforcementLatency
+#     Method: NetworkPolicyEnforcementLatency
+#     Params:
+#       action: gather
+#       labelSelector: group = net-policy-latency
+
+- name: Wait 2min
+  measurements:
+   - Identifier: Wait
+     Method: Sleep
+     Params:
+       duration: 2m
+
+- name: Clean up resources
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: np-dep
+      objectTemplatePath: dep.yaml
+#    - basename: np-latency
+#      objectTemplatePath: service.yaml
+    # - basename: np-latency-deny
+    #   objectTemplatePath: networkpolicy-deny.yaml
+    # - basename: np-latency-allow
+    #   objectTemplatePath: networkpolicy-allow.yaml

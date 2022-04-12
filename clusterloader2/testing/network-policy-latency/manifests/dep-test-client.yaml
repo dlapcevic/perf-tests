@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    test: np-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      test: np-client
+  template:
+    metadata:
+      labels:
+        test: np-client
+    spec:
+      containers:
+      - name: net-policy-latency-client
+        ports:
+        - containerPort: 9154
+          hostPort: 9154
+          name: npdelaymetrics
+          protocol: TCP
+        imagePullPolicy: Always
+        image: gcr.io/dordel-gke-dev/network-policy-latency-client:v0.0.1
+        # args:
+        #   - -targetLabelSelector "group = net-policy-latency"
+        command:
+        - sh
+        - -c
+        - ./network-policy-latency-client -targetLabelSelector "{{.TargetLabelSelector}}" -targetNamespace "{{.Namespace}}"
+        # resources:
+        #   limits:
+        #     cpu: 70m
+        #     memory: 30Mi
+        #   requests:
+        #     cpu: 50m
+        #     memory: 20Mi
+        # ports:
+        # - containerPort: 80
+      serviceAccountName: {{.ServiceAccountName}}

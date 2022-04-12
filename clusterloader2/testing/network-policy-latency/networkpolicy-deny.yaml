@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{.Name}}
+  labels:
+    test: {{.TestLabelValue}}-{{.Index}}
+spec:
+  podSelector:
+    matchLabels:
+      test: {{.TestLabelValue}}-{{.Index}}
+  policyTypes:
+    - Ingress
+#  ingress:
+#  - from:
+#    - podSelector:
+#        matchLabels:
+#          deny: all
