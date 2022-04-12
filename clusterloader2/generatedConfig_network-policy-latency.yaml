@@ -2,11 +2,35 @@ name: network-policy-latency
 automanagednamespaces: 0
 namespace:
   number: 5
-  prefix: test-b058zc
+  prefix: test-asvlvw
   deletestalenamespaces: false
   deleteautomanagednamespaces: true
   enableexistingnamespaces: false
 steps:
+- phases: []
+  measurements:
+  - method: GenericPrometheusQuery
+    params:
+      action: start
+      metricName: API request latency
+      metricVersion: v1
+      queries:
+      - name: Perc99
+        query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v]))
+          by (le))
+      - name: Perc90
+        query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v]))
+          by (le))
+      - name: Perc50
+        query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v]))
+          by (le))
+      unit: ms
+    identifier: GetNetPolicyLatencyMetrics
+    instances: []
+  module:
+    path: ""
+    params: {}
+  name: Start measurements
 - phases:
   - namespacerange:
       min: 1
@@ -182,6 +206,52 @@ steps:
     path: ""
     params: {}
   name: Wait 3min for pods to be reached
+- phases:
+  - namespacerange:
+      min: 1
+      max: 5
+      basename: null
+    replicaspernamespace: 0
+    tuningset: defaultQPS
+    objectbundle:
+    - basename: np-dep
+      objecttemplatepath: dep.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+    - basename: np-latency-deny
+      objecttemplatepath: networkpolicy-deny.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+    - basename: np-latency-allow
+      objecttemplatepath: networkpolicy-allow.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+  measurements: []
+  module:
+    path: ""
+    params: {}
+  name: Clean up deployments and network policies
+- phases:
+  - namespacerange:
+      min: 1
+      max: 5
+      basename: null
+    replicaspernamespace: 0
+    tuningset: defaultQPS
+    objectbundle:
+    - basename: test-client-dep
+      objecttemplatepath: manifests/dep-test-client.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+    - basename: np-latency-test
+      objecttemplatepath: manifests/test-client-permissions.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+  measurements: []
+  module:
+    path: ""
+    params: {}
+  name: Clean up test client deployments and permission resources
 - phases: []
   measurements:
   - method: WaitForControlledPodsRunning
@@ -197,6 +267,17 @@ steps:
     path: ""
     params: {}
   name: Waiting for resource clean up to be completed for pods
+- phases: []
+  measurements:
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+    identifier: GetNetPolicyLatencyMetrics
+    instances: []
+  module:
+    path: ""
+    params: {}
+  name: Gather measurements
 tuningsets:
 - name: defaultQPS
   initialdelay: 0
