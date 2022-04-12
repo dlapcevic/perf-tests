@@ -13,6 +13,8 @@ spec:
   selector:
     matchLabels:
       test: np-client
+  namespaceSelector:
+    any: true
   # namespaceSelector:
   #   matchNames:
   #     - kube-system
