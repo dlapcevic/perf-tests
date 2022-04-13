@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{.Name}}
+  labels:
+    {{.TargetLabelKey}}: {{.TargetLabelValue}}
+    test: {{.TestLabelValue}}-{{.Index}}
+spec:
+  podSelector:
+    matchLabels:
+      {{.TargetLabelKey}}: {{.TargetLabelValue}}
+      test: {{.TestLabelValue}}-{{.Index}}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          test: np-client-podcreation

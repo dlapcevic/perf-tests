@@ -75,17 +75,6 @@ steps:
     - basename: {{$serviceAaccountName}}
       objectTemplatePath: manifests/rolebinding.yaml
 
-# - name: Creating service accounts, roles and rolebindings
-#   phases:
-#   - namespaceRange:
-#       min: 1
-#       max: {{$namespaces}}
-#     replicasPerNamespace: 1
-#     tuningSet: defaultQPS
-#     objectBundle:
-#     - basename: {{$serviceAaccountName}}
-#       objectTemplatePath: manifests/test-client-permissions.yaml
-
 - name: Wait for test client pods (pod creation) - start measurement
   measurements:
   - Method: WaitForControlledPodsRunning
@@ -134,8 +123,8 @@ steps:
       templateFillMap:
         TargetLabelKey: {{$targetLabelKey}}
         TargetLabelValue: {{$targetLabelValue}}
-    - basename: np-latency-allow
-      objectTemplatePath: manifests/policy-allow.yaml
+    - basename: np-latency-allow-podcreation
+      objectTemplatePath: manifests/policy-allow-podcreation.yaml
       templateFillMap:
         TestLabelValue: {{$testLabelValue}}
         TargetLabelKey: {{$targetLabelKey}}
@@ -178,16 +167,16 @@ steps:
     Params:
       action: gather
 
-- name: Delete allow network policies before testing policy creation
-  phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 0
-    tuningSet: defaultQPS
-    objectBundle:
-    - basename: np-latency-allow
-      objectTemplatePath: networkpolicy-allow.yaml
+# - name: Delete allow network policies before testing policy creation
+#   phases:
+#   - namespaceRange:
+#       min: 1
+#       max: {{$namespaces}}
+#     replicasPerNamespace: 0
+#     tuningSet: defaultQPS
+#     objectBundle:
+#     - basename: np-latency-allow
+#       objectTemplatePath: networkpolicy-allow.yaml
 
 - name: Wait for test client pods - start measurement
   measurements:
@@ -267,6 +256,8 @@ steps:
     - basename: np-latency-deny
       objectTemplatePath: networkpolicy-deny.yaml
     - basename: np-latency-allow
+      objectTemplatePath: networkpolicy-allow.yaml
+    - basename: np-latency-allow-podcreation
       objectTemplatePath: networkpolicy-allow.yaml
 
 - name: Clean up test client deployments and permission resources
