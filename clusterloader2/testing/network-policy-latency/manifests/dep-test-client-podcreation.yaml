@@ -3,16 +3,16 @@ kind: Deployment
 metadata:
   name: {{.Name}}
   labels:
-    test: np-client
+    test: np-client-podcreation
 spec:
   replicas: 1
   selector:
     matchLabels:
-      test: np-client
+      test: np-client-podcreation
   template:
     metadata:
       labels:
-        test: np-client
+        test: np-client-podcreation
     spec:
       containers:
       - name: net-policy-latency-client
