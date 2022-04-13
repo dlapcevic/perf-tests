@@ -184,6 +184,14 @@ steps:
      Params:
        duration: 2m
 
+- name: Gather measurements
+  measurements:
+  - Identifier: GetNetPolicyLatencyMetrics
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
+      enableViolations: true
+
 - name: Clean up deployments and network policies
   phases:
   - namespaceRange:
@@ -220,11 +228,3 @@ steps:
     - Identifier: WaitForTestClientPods
     Params:
       action: gather
-
-- name: Gather measurements
-  measurements:
-  - Identifier: GetNetPolicyLatencyMetrics
-    Method: GenericPrometheusQuery
-    Params:
-      action: gather
-      enableViolations: true
