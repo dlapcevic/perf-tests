@@ -39,16 +39,26 @@ steps:
       metricVersion: v1
       unit: ms
       queries:
-        - name: TargetCount
+        - name: PolicyCreation - TargetCount
           query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v:]
-        - name: Perc99
+        - name: PolicyCreation - Perc99
           query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
           threshold: 10
-        - name: Perc90
+        - name: PolicyCreation - Perc90
           query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
-        - name: Perc50
+        - name: PolicyCreation - Perc50
           query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
           threshold: 5
+        - name: PodCreationTargetCount
+          query: sum(policy_enforcement_latency_pod_creation_seconds_count)#[%v:]
+        - name: PodCreation - Perc99
+          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+          threshold: 30
+        - name: PodCreation - Perc90
+          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+        - name: PodCreation - Perc50
+          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+          threshold: 15
 
 - name: Creating service accounts, roles and rolebindings
   phases:
@@ -76,7 +86,42 @@ steps:
 #     - basename: {{$serviceAaccountName}}
 #       objectTemplatePath: manifests/test-client-permissions.yaml
 
-- name: Creating deny network policies
+- name: Wait for test client pods (pod creation) - start measurement
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForTestClientPods-PodCreation
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      labelSelector: test = np-client-podcreation
+      operationTimeout: 2m
+
+- name: Creating test client deployments - Pod Creation test
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: test-client-dep-podcreation
+      objectTemplatePath: manifests/dep-test-client-podcreation.yaml
+      templateFillMap:
+        TargetLabelSelector: "{{$targetLabelKey}} = {{$targetLabelValue}}"
+        ServiceAccountName: "{{$serviceAaccountName}}-0"
+
+- name: Wait for test client pods (pod creation) - gather measuerement
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForTestClientPods-PodCreation
+    Params:
+      action: gather
+
+- name: Creating allow and deny network policies
   phases:
   - namespaceRange:
       min: 1
@@ -87,6 +132,12 @@ steps:
     - basename: np-latency-deny
       objectTemplatePath: manifests/policy-deny.yaml
       templateFillMap:
+        TargetLabelKey: {{$targetLabelKey}}
+        TargetLabelValue: {{$targetLabelValue}}
+    - basename: np-latency-allow
+      objectTemplatePath: manifests/policy-allow.yaml
+      templateFillMap:
+        TestLabelValue: {{$testLabelValue}}
         TargetLabelKey: {{$targetLabelKey}}
         TargetLabelValue: {{$targetLabelValue}}
 
@@ -127,6 +178,17 @@ steps:
     Params:
       action: gather
 
+- name: Delete allow network policies before testing policy creation
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: np-latency-allow
+      objectTemplatePath: networkpolicy-allow.yaml
+
 - name: Wait for test client pods - start measurement
   measurements:
   - Method: WaitForControlledPodsRunning
@@ -140,7 +202,7 @@ steps:
       labelSelector: test = np-client
       operationTimeout: 2m
 
-- name: Creating test client deployments
+- name: Creating test client deployments - Policy Creation test
   phases:
   - namespaceRange:
       min: 1
@@ -217,6 +279,8 @@ steps:
     objectBundle:
     - basename: test-client-dep
       objectTemplatePath: manifests/dep-test-client.yaml
+    - basename: test-client-dep-podcreation
+      objectTemplatePath: manifests/dep-test-client-podcreation.yaml
     - basename: np-latency-test
       objectTemplatePath: manifests/test-client-permissions.yaml
 
