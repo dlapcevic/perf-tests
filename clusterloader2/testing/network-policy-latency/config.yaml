@@ -47,6 +47,8 @@ steps:
         - name: Perc50
           query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
           threshold: 5
+        - name: TargetCount
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="+Inf"})
 
 - name: Creating service accounts, roles and rolebindings
   phases:
