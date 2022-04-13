@@ -7,7 +7,7 @@
 
 {{$qps := 20}}
 {{$namespaces := 10}}
-{{$replicasPerNamespace := 20}}
+{{$replicasPerNamespace := 50}}
 
 name: network-policy-latency
 namespace:
@@ -40,19 +40,15 @@ steps:
       unit: ms
       queries:
         - name: TargetCount
-          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="+Inf"}) by (le)
+          query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v:]
         - name: Perc99
-          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[10m])) by (le))#[%v]
           threshold: 10
         - name: Perc90
-          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[10m])) by (le))#[%v]
         - name: Perc50
-          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[10m])) by (le))#[%v]
           threshold: 5
-        - name: TargetCount2
-          query: 'sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="+Inf"}) by (le)'
-        - name: TargetCount3
-          query: `sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="+Inf"}) by (le)`
 
 - name: Creating service accounts, roles and rolebindings
   phases:
@@ -181,12 +177,12 @@ steps:
         TargetLabelKey: {{$targetLabelKey}}
         TargetLabelValue: {{$targetLabelValue}}
 
-- name: Wait 3min for pods to be reached
+- name: Wait 2min for pods to be reached
   measurements:
    - Identifier: Wait
      Method: Sleep
      Params:
-       duration: 3m
+       duration: 2m
 
 - name: Clean up deployments and network policies
   phases:

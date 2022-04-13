@@ -28,7 +28,7 @@ spec:
         command:
         - sh
         - -c
-        - ./network-policy-latency-client -targetLabelSelector "{{.TargetLabelSelector}}" -targetNamespace "{{.Namespace}}"
+        - ./network-policy-latency-client -targetLabelSelector "{{.TargetLabelSelector}}" -targetNamespace "{{.Namespace}}" -maxTargets 100
         # resources:
         #   limits:
         #     cpu: 70m

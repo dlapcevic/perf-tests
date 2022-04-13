@@ -1,8 +1,8 @@
 name: network-policy-latency
 automanagednamespaces: 0
 namespace:
-  number: 5
-  prefix: test-asvlvw
+  number: 3
+  prefix: test-iycva9
   deletestalenamespaces: false
   deleteautomanagednamespaces: true
   enableexistingnamespaces: false
@@ -12,18 +12,22 @@ steps:
   - method: GenericPrometheusQuery
     params:
       action: start
-      metricName: API request latency
+      metricName: Network Policy Enforcement Latency
       metricVersion: v1
       queries:
       - name: Perc99
-        query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v]))
-          by (le))
+        query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[10m]))
+          by (le))#[%v]
+        threshold: 10
       - name: Perc90
-        query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v]))
-          by (le))
+        query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[10m]))
+          by (le))#[%v]
       - name: Perc50
-        query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v]))
-          by (le))
+        query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[10m]))
+          by (le))#[%v]
+        threshold: 5
+      - name: TargetCount
+        query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v:]
       unit: ms
     identifier: GetNetPolicyLatencyMetrics
     instances: []
@@ -34,7 +38,7 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 5
+      max: 3
       basename: null
     replicaspernamespace: 1
     tuningset: defaultQPS
@@ -59,9 +63,9 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 5
+      max: 3
       basename: null
-    replicaspernamespace: 10
+    replicaspernamespace: 50
     tuningset: defaultQPS
     objectbundle:
     - basename: np-latency-deny
@@ -95,9 +99,9 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 5
+      max: 3
       basename: null
-    replicaspernamespace: 10
+    replicaspernamespace: 50
     tuningset: defaultQPS
     objectbundle:
     - basename: np-dep
@@ -146,7 +150,7 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 5
+      max: 3
       basename: null
     replicaspernamespace: 1
     tuningset: defaultQPS
@@ -178,9 +182,9 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 5
+      max: 3
       basename: null
-    replicaspernamespace: 10
+    replicaspernamespace: 50
     tuningset: defaultQPS
     objectbundle:
     - basename: np-latency-allow
@@ -199,17 +203,17 @@ steps:
   measurements:
   - method: Sleep
     params:
-      duration: 3m
+      duration: 2m
     identifier: Wait
     instances: []
   module:
     path: ""
     params: {}
-  name: Wait 3min for pods to be reached
+  name: Wait 2min for pods to be reached
 - phases:
   - namespacerange:
       min: 1
-      max: 5
+      max: 3
       basename: null
     replicaspernamespace: 0
     tuningset: defaultQPS
@@ -234,7 +238,7 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 5
+      max: 3
       basename: null
     replicaspernamespace: 0
     tuningset: defaultQPS
@@ -272,6 +276,7 @@ steps:
   - method: GenericPrometheusQuery
     params:
       action: gather
+      enableViolations: true
     identifier: GetNetPolicyLatencyMetrics
     instances: []
   module:
