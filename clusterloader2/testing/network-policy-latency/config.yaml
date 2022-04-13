@@ -42,12 +42,12 @@ steps:
         - name: TargetCount
           query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v:]
         - name: Perc99
-          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[10m])) by (le))#[%v]
+          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
           threshold: 10
         - name: Perc90
-          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[10m])) by (le))#[%v]
+          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
         - name: Perc50
-          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[10m])) by (le))#[%v]
+          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
           threshold: 5
 
 - name: Creating service accounts, roles and rolebindings
