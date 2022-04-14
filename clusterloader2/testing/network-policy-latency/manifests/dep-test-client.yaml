@@ -30,13 +30,13 @@ spec:
         - sh
         - -c
         - ./network-policy-latency-client -targetLabelSelector "{{.TargetLabelSelector}}" -targetNamespace "{{.Namespace}}" -maxTargets 100
-        # resources:
-        #   limits:
-        #     cpu: 70m
-        #     memory: 30Mi
-        #   requests:
-        #     cpu: 50m
-        #     memory: 20Mi
+        resources:
+          limits:
+            cpu: 70m
+            memory: 30Mi
+          requests:
+            cpu: 50m
+            memory: 20Mi
         # ports:
         # - containerPort: 80
       serviceAccountName: {{.ServiceAccountName}}
