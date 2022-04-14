@@ -8,11 +8,12 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      test: np-client-podcreation
+      name: {{.Name}}
   template:
     metadata:
       labels:
         test: np-client-podcreation
+        name: {{.Name}}
     spec:
       containers:
       - name: net-policy-latency-client

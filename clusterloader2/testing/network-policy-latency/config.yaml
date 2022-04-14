@@ -86,7 +86,7 @@ steps:
     Params:
       action: start
       labelSelector: test = np-client-podcreation
-      operationTimeout: 2m
+      operationTimeout: 5m
 
 - name: Creating test client deployments - Pod Creation test
   phases:
@@ -141,7 +141,7 @@ steps:
     Params:
       action: start
       labelSelector: "{{$targetLabelKey}} = {{$targetLabelValue}}"
-      operationTimeout: 2m
+      operationTimeout: 5m
 
 - name: Creating deployments
   phases:
@@ -189,7 +189,7 @@ steps:
     Params:
       action: start
       labelSelector: test = np-client
-      operationTimeout: 2m
+      operationTimeout: 5m
 
 - name: Creating test client deployments - Policy Creation test
   phases:

@@ -11,8 +11,10 @@ spec:
       port: npdelaymetrics
   jobLabel: k8s-app
   selector:
-    matchLabels:
-      test: np-client
+    matchExpressions:
+      - {key: test, operator: In, values: [np-client, np-client-podcreation]}
+    # matchLabels:
+    #   test: np-client
   namespaceSelector:
     any: true
   # namespaceSelector:
