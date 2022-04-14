@@ -29,7 +29,7 @@ spec:
         command:
         - sh
         - -c
-        - ./network-policy-latency-client -targetLabelSelector "{{.TargetLabelSelector}}" -targetNamespace "{{.Namespace}}" -maxTargets 100 -testPodCreation true
+        - ./network-policy-latency-client -targetLabelSelector "{{.TargetLabelSelector}}" -targetNamespace "{{.Namespace}}" -testPodCreation true #-maxTargets 100 
         # resources:
         #   limits:
         #     cpu: 70m

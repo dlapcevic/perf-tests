@@ -6,8 +6,8 @@
 {{$targetLabelValue := "net-policy-latency"}}
 
 {{$qps := 20}}
-{{$namespaces := 10}}
-{{$replicasPerNamespace := 50}}
+{{$namespaces := 20}}
+{{$replicasPerNamespace := 20}}
 
 name: network-policy-latency
 namespace:
@@ -281,5 +281,6 @@ steps:
     Instances:
     - Identifier: WaitForRunningDeployments
     - Identifier: WaitForTestClientPods
+    - Identifier: WaitForTestClientPods-PodCreation
     Params:
       action: gather
