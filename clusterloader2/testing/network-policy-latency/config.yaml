@@ -1,4 +1,4 @@
-{{$PODS_PER_DEP := DefaultParam .CL2_PODS_PER_DEP 4}}
+{{$PODS_PER_DEP := DefaultParam .CL2_PODS_PER_DEP 1}}
 {{$BASE_METRICS_PORT := DefaultParam .CL2_BASE_METRICS_PORT 9154}}
 
 {{$serviceAccountName := "np-latency-test"}}
@@ -8,7 +8,7 @@
 
 {{$qps := 20}}
 {{$namespaces := 10}}
-{{$replicasPerNamespace := 250}}
+{{$replicasPerNamespace := 100}}
 
 # Baseline test means that it will measure pod connectivity latency without creating network policies.
 # This only applies to the measured latency for pod creation, and not for network policy creation.
