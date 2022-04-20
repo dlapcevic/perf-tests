@@ -4,7 +4,7 @@
 {{$targetLabelValue := "net-policy-latency"}}
 
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 20}}
-{{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT $LOAD_TEST_THROUGHPUT 20}}
+{{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT 20}}
 
 {{$namespaces := DefaultParam .CL2_NAMESPACES 10}}
 {{$replicasPerNamespace := DefaultParam .CL2_REPLICAS_PER_NAMESPACE 100}}
