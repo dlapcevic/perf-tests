@@ -7,7 +7,7 @@
 {{$targetLabelValue := "net-policy-latency"}}
 
 {{$qps := 20}}
-{{$namespaces := 1}}
+{{$namespaces := 10}}
 {{$replicasPerNamespace := 250}}
 
 # Baseline test means that it will measure pod connectivity latency without creating network policies.
