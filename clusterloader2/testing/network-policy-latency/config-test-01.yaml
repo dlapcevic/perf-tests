@@ -1,0 +1,110 @@
+{{$PODS_PER_DEP := DefaultParam .CL2_PODS_PER_DEP 1}}
+
+{{$serviceAaccountName := "np-latency-test"}}
+{{$testLabelValue := "np-latency"}}
+{{$targetLabelKey := "group"}}
+{{$targetLabelValue := "net-policy-latency"}}
+
+{{$qps := 20}}
+{{$namespaces := 5}}
+{{$replicasPerNamespace := 1}}
+
+{{$BASE_METRICS_PORT := DefaultParam .CL2_BASE_METRICS_PORT 9154}}
+
+name: network-policy-latency
+namespace:
+  number: {{$namespaces}}
+tuningSets:
+- name: defaultQPS
+  qpsLoad:
+    qps: {{$qps}}
+steps:
+
+- name: Creating service accounts, roles and rolebindings
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: {{$serviceAaccountName}}
+      objectTemplatePath: manifests/serviceaccount.yaml
+    - basename: {{$serviceAaccountName}}
+      objectTemplatePath: manifests/role.yaml
+    - basename: {{$serviceAaccountName}}
+      objectTemplatePath: manifests/rolebinding.yaml
+
+- name: Wait for test client pods (pod creation) - start measurement
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForTestClientPods-PodCreation
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      labelSelector: test = np-client-podcreation
+      operationTimeout: 5m
+
+{{range $ns := Loop $namespaces}}
+- name: Creating test client deployments - Pod Creation test
+  phases:
+  - namespaceRange:
+      min: {{AddInt $ns 1}}
+      max: {{AddInt $ns 1}}
+    replicasPerNamespace: 1
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: test-client-dep-podcreation
+      objectTemplatePath: manifests/dep-test-client-podcreation.yaml
+      templateFillMap:
+        TargetLabelSelector: "{{$targetLabelKey}} = {{$targetLabelValue}}"
+        ServiceAccountName: "{{$serviceAaccountName}}-0"
+        MetricsPort: {{AddInt $BASE_METRICS_PORT $ns}}
+{{end}}
+
+- name: Wait for test client pods (pod creation) - gather measuerement
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForTestClientPods-PodCreation
+    Params:
+      action: gather
+
+- name: Wait 2min for pods to be reached
+  measurements:
+   - Identifier: Wait
+     Method: Sleep
+     Params:
+       duration: 2m
+
+- name: Clean up test client deployments and permission resources
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: defaultQPS
+    objectBundle:
+    # - basename: test-client-dep
+    #   objectTemplatePath: manifests/dep-test-client.yaml
+    - basename: test-client-dep-podcreation
+      objectTemplatePath: manifests/dep-test-client-podcreation.yaml
+    - basename: {{$serviceAaccountName}}
+      objectTemplatePath: manifests/serviceaccount.yaml
+    - basename: {{$serviceAaccountName}}
+      objectTemplatePath: manifests/role.yaml
+    - basename: {{$serviceAaccountName}}
+      objectTemplatePath: manifests/rolebinding.yaml
+
+- name: Waiting for resource clean up to be completed for pods
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    # - Identifier: WaitForRunningDeployments
+    # - Identifier: WaitForTestClientPods
+    - Identifier: WaitForTestClientPods-PodCreation
+    Params:
+      action: gather

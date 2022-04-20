@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{.Name}}
+  labels:
+    test: np-client-podcreation
+spec:
+  podSelector:
+    matchLabels:
+      test: np-client-podcreation
+  policyTypes:
+  - Egress
+  egress:
+  - ports:
+    - port: 443
+      protocol: TCP
+    - port: 80
+      protocol: TCP
+    to:
+    - ipBlock:
+        cidr: 172.16.0.0/0
+        # cidr: 172.16.0.2/32
+    # - podSelector:
+    #     matchLabels:
+    #       group: net-policy-latency

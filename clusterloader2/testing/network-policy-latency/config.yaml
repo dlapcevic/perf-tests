@@ -1,13 +1,18 @@
-{{$PODS_PER_DEP := DefaultParam .CL2_PODS_PER_DEP 1}}
+{{$PODS_PER_DEP := DefaultParam .CL2_PODS_PER_DEP 4}}
+{{$BASE_METRICS_PORT := DefaultParam .CL2_BASE_METRICS_PORT 9154}}
 
-{{$serviceAaccountName := "np-latency-test"}}
+{{$serviceAccountName := "np-latency-test"}}
 {{$testLabelValue := "np-latency"}}
 {{$targetLabelKey := "group"}}
 {{$targetLabelValue := "net-policy-latency"}}
 
 {{$qps := 20}}
-{{$namespaces := 20}}
-{{$replicasPerNamespace := 20}}
+{{$namespaces := 1}}
+{{$replicasPerNamespace := 250}}
+
+# Baseline test means that it will measure pod connectivity latency without creating network policies.
+# This only applies to the measured latency for pod creation, and not for network policy creation.
+{{$BASELINE_TEST := DefaultParam .CL_BASELINE_TEST false}}
 
 name: network-policy-latency
 namespace:
@@ -17,17 +22,6 @@ tuningSets:
   qpsLoad:
     qps: {{$qps}}
 steps:
-
-# - name: Create Prometheus pod monitor for network policy test client pods
-#   phases:
-#   - namespaceRange:
-#       min: 1
-#       max: 1
-#     replicasPerNamespace: 1
-#     tuningSet: defaultQPS
-#     objectBundle:
-#     - basename: np-test-client-pods
-#       objectTemplatePath: manifests/prometheus-podMonitorNpClient.yaml
 
 - name: Start measurements
   measurements:
@@ -41,26 +35,69 @@ steps:
       queries:
         - name: PolicyCreation - TargetCount
           query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v:]
+        - name: PolicyCreation - Bucket 3s
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="1"})#[%v:]
+        - name: PolicyCreation - Bucket 5s
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="3"})#[%v:]
+        - name: PolicyCreation - Bucket 10s
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="5"})#[%v:]
         - name: PolicyCreation - Perc99
-          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[1%v])) by (le))
           threshold: 10
-        - name: PolicyCreation - Perc90
-          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
-        - name: PolicyCreation - Perc50
-          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
-          threshold: 5
+        # - name: PolicyCreation - Perc90
+        #   query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+        # - name: PolicyCreation - Perc50
+        #   query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+        #   threshold: 5
+{{if not $BASELINE_TEST}}
         - name: PodCreation - TargetCount
           query: sum(policy_enforcement_latency_pod_creation_seconds_count)#[%v:]
+        - name: PodCreation - Bucket 0.1s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="0.1"})#[%v:]
+        - name: PodCreation - Bucket 0.5s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="0.5"})#[%v:]
+        - name: PodCreation - Bucket 1s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="1"})#[%v:]
+        - name: PodCreation - Bucket 3s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="3"})#[%v:]
+        - name: PodCreation - Bucket 5s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="5"})#[%v:]
+        - name: PodCreation - Bucket 10s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="10"})#[%v:]
+        - name: PodCreation - Bucket 60s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="60"})#[%v:]
+        - name: PodCreation - Bucket 600s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="600"})#[%v:]
         - name: PodCreation - Perc99
-          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[1%v])) by (le))
           threshold: 30
-        - name: PodCreation - Perc90
-          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
-        - name: PodCreation - Perc50
-          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
-          threshold: 15
+        # - name: PodCreation - Perc90
+        #   query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+        # - name: PodCreation - Perc50
+        #   query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+        #   threshold: 15
+        - name: PodIpAssignedLatency - TargetCount
+          query: sum(pod_ip_address_assigned_latency_seconds_count)#[%v:]
+        - name: PodIpAssignedLatency - Bucket 1s
+          query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="1"})#[%v:]
+        - name: PodIpAssignedLatency - Bucket 3s
+          query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="3"})#[%v:]
+        - name: PodIpAssignedLatency - Bucket 5s
+          query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="5"})#[%v:]
+        - name: PodIpAssignedLatency - Bucket 10s
+          query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="10"})#[%v:]
+        - name: PodIpAssignedLatency - Bucket 30s
+          query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="30"})#[%v:]
+        - name: PodIpAssignedLatency - Bucket 60s
+          query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="60"})#[%v:]
+        - name: PodIpAssignedLatency - Bucket 600s
+          query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="600"})#[%v:]
+        - name: PodIpAssignedLatency - Perc99
+          query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[1%v])) by (le))
+          threshold: 30
+{{end}}
 
-- name: Creating service accounts, roles and rolebindings
+- name: Creating allow egress network policies for pod creation latency test
   phases:
   - namespaceRange:
       min: 1
@@ -68,48 +105,15 @@ steps:
     replicasPerNamespace: 1
     tuningSet: defaultQPS
     objectBundle:
-    - basename: {{$serviceAaccountName}}
-      objectTemplatePath: manifests/serviceaccount.yaml
-    - basename: {{$serviceAaccountName}}
-      objectTemplatePath: manifests/role.yaml
-    - basename: {{$serviceAaccountName}}
-      objectTemplatePath: manifests/rolebinding.yaml
-
-- name: Wait for test client pods (pod creation) - start measurement
-  measurements:
-  - Method: WaitForControlledPodsRunning
-    Instances:
-    - Identifier: WaitForTestClientPods-PodCreation
-      Params:
-        apiVersion: apps/v1
-        kind: Deployment
-    Params:
-      action: start
-      labelSelector: test = np-client-podcreation
-      operationTimeout: 5m
-
-- name: Creating test client deployments - Pod Creation test
-  phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: 1
-    tuningSet: defaultQPS
-    objectBundle:
-    - basename: test-client-dep-podcreation
-      objectTemplatePath: manifests/dep-test-client-podcreation.yaml
+    - basename: np-egress-allow-podcreation
+      objectTemplatePath: manifests/policy-client-egress-allow.yaml
       templateFillMap:
-        TargetLabelSelector: "{{$targetLabelKey}} = {{$targetLabelValue}}"
-        ServiceAccountName: "{{$serviceAaccountName}}-0"
+        TargetLabelKey: {{$targetLabelKey}}
+        TargetLabelValue: {{$targetLabelValue}}
+    - basename: np-egress-apiserver-podcreation
+      objectTemplatePath: manifests/policy-client-egress-apiserver.yaml
 
-- name: Wait for test client pods (pod creation) - gather measuerement
-  measurements:
-  - Method: WaitForControlledPodsRunning
-    Instances:
-    - Identifier: WaitForTestClientPods-PodCreation
-    Params:
-      action: gather
-
+{{if not $BASELINE_TEST}}
 - name: Creating allow and deny network policies
   phases:
   - namespaceRange:
@@ -129,6 +133,60 @@ steps:
         TestLabelValue: {{$testLabelValue}}
         TargetLabelKey: {{$targetLabelKey}}
         TargetLabelValue: {{$targetLabelValue}}
+{{end}}
+
+- name: Creating service accounts, roles and rolebindings
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: {{$serviceAccountName}}
+      objectTemplatePath: manifests/serviceaccount.yaml
+    - basename: {{$serviceAccountName}}
+      objectTemplatePath: manifests/role.yaml
+    - basename: {{$serviceAccountName}}
+      objectTemplatePath: manifests/rolebinding.yaml
+
+- name: Wait for test client pods (pod creation) - start measurement
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForTestClientPods-PodCreation
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      labelSelector: test = np-client-podcreation
+      operationTimeout: 5m
+
+{{range $ns := Loop $namespaces}}
+- name: Creating test client deployments - Pod Creation test
+  phases:
+  - namespaceRange:
+      min: {{AddInt $ns 1}}
+      max: {{AddInt $ns 1}}
+    replicasPerNamespace: 1
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: test-client-dep-podcreation
+      objectTemplatePath: manifests/dep-test-client-podcreation.yaml
+      templateFillMap:
+        TargetLabelSelector: "{{$targetLabelKey}} = {{$targetLabelValue}}"
+        ServiceAccountName: "{{$serviceAccountName}}-0"
+        MetricsPort: {{AddInt $BASE_METRICS_PORT $ns}}
+{{end}}
+
+- name: Wait for test client pods (pod creation) - gather measuerement
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForTestClientPods-PodCreation
+    Params:
+      action: gather
 
 - name: Wait for target pods - start measurement
   measurements:
@@ -167,17 +225,6 @@ steps:
     Params:
       action: gather
 
-# - name: Delete allow network policies before testing policy creation
-#   phases:
-#   - namespaceRange:
-#       min: 1
-#       max: {{$namespaces}}
-#     replicasPerNamespace: 0
-#     tuningSet: defaultQPS
-#     objectBundle:
-#     - basename: np-latency-allow
-#       objectTemplatePath: networkpolicy-allow.yaml
-
 - name: Wait for test client pods - start measurement
   measurements:
   - Method: WaitForControlledPodsRunning
@@ -203,7 +250,7 @@ steps:
       objectTemplatePath: manifests/dep-test-client.yaml
       templateFillMap:
         TargetLabelSelector: "{{$targetLabelKey}} = {{$targetLabelValue}}"
-        ServiceAccountName: "{{$serviceAaccountName}}-0"
+        ServiceAccountName: "{{$serviceAccountName}}-0"
 
 - name: Wait for test client pods - gather measuerement
   measurements:
@@ -228,12 +275,12 @@ steps:
         TargetLabelKey: {{$targetLabelKey}}
         TargetLabelValue: {{$targetLabelValue}}
 
-- name: Wait 2min for pods to be reached
+- name: Wait 1min for pods to be reached
   measurements:
    - Identifier: Wait
      Method: Sleep
      Params:
-       duration: 2m
+       duration: 1m
 
 - name: Gather measurements
   measurements:
@@ -253,12 +300,14 @@ steps:
     objectBundle:
     - basename: np-dep
       objectTemplatePath: dep.yaml
-    - basename: np-latency-deny
-      objectTemplatePath: networkpolicy-deny.yaml
     - basename: np-latency-allow
-      objectTemplatePath: networkpolicy-allow.yaml
+      objectTemplatePath: manifests/policy-allow.yaml
+{{if not $BASELINE_TEST}}
+    - basename: np-latency-deny
+      objectTemplatePath: manifests/policy-deny.yaml
     - basename: np-latency-allow-podcreation
-      objectTemplatePath: networkpolicy-allow.yaml
+      objectTemplatePath: manifests/policy-allow-podcreation.yaml
+{{end}}
 
 - name: Clean up test client deployments and permission resources
   phases:
@@ -272,8 +321,16 @@ steps:
       objectTemplatePath: manifests/dep-test-client.yaml
     - basename: test-client-dep-podcreation
       objectTemplatePath: manifests/dep-test-client-podcreation.yaml
-    - basename: np-latency-test
-      objectTemplatePath: manifests/test-client-permissions.yaml
+    - basename: np-egress-allow-podcreation
+      objectTemplatePath: manifests/policy-client-egress-allow.yaml
+    - basename: np-egress-apiserver-podcreation
+      objectTemplatePath: manifests/policy-client-egress-apiserver.yaml
+    - basename: {{$serviceAccountName}}
+      objectTemplatePath: manifests/serviceaccount.yaml
+    - basename: {{$serviceAccountName}}
+      objectTemplatePath: manifests/role.yaml
+    - basename: {{$serviceAccountName}}
+      objectTemplatePath: manifests/rolebinding.yaml
 
 - name: Waiting for resource clean up to be completed for pods
   measurements:
@@ -284,3 +341,11 @@ steps:
     - Identifier: WaitForTestClientPods-PodCreation
     Params:
       action: gather
+
+# - name: Gather measurements
+#   measurements:
+#   - Identifier: GetNetPolicyLatencyMetrics
+#     Method: GenericPrometheusQuery
+#     Params:
+#       action: gather
+#       enableViolations: true

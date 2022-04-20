@@ -1,8 +1,8 @@
 name: network-policy-latency
 automanagednamespaces: 0
 namespace:
-  number: 3
-  prefix: test-iycva9
+  number: 1
+  prefix: test-2b4rmp
   deletestalenamespaces: false
   deleteautomanagednamespaces: true
   enableexistingnamespaces: false
@@ -15,19 +15,62 @@ steps:
       metricName: Network Policy Enforcement Latency
       metricVersion: v1
       queries:
-      - name: Perc99
-        query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[10m]))
-          by (le))#[%v]
-        threshold: 10
-      - name: Perc90
-        query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[10m]))
-          by (le))#[%v]
-      - name: Perc50
-        query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[10m]))
-          by (le))#[%v]
-        threshold: 5
-      - name: TargetCount
+      - name: PolicyCreation - TargetCount
         query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v:]
+      - name: PolicyCreation - Bucket 3s
+        query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="1"})#[%v:]
+      - name: PolicyCreation - Bucket 5s
+        query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="3"})#[%v:]
+      - name: PolicyCreation - Bucket 10s
+        query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="5"})#[%v:]
+      - name: PolicyCreation - Perc99
+        query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[1%v]))
+          by (le))
+        threshold: 10
+      - name: PodCreation - TargetCount
+        query: sum(policy_enforcement_latency_pod_creation_seconds_count)#[%v:]
+      - name: PodCreation - Bucket 0.1s
+        query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="0.1"})#[%v:]
+      - name: PodCreation - Bucket 0.5s
+        query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="0.5"})#[%v:]
+      - name: PodCreation - Bucket 1s
+        query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="1"})#[%v:]
+      - name: PodCreation - Bucket 3s
+        query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="3"})#[%v:]
+      - name: PodCreation - Bucket 5s
+        query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="5"})#[%v:]
+      - name: PodCreation - Bucket 10s
+        query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="10"})#[%v:]
+      - name: PodCreation - Bucket 60s
+        query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="60"})#[%v:]
+      - name: PodCreation - Bucket 600s
+        query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="600"})#[%v:]
+      - name: PodCreation - Perc99
+        query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[1%v]))
+          by (le))
+        threshold: 30
+      - name: PodIpAssignedLatency - TargetCount
+        query: sum(pod_ip_address_assigned_latency_seconds_count)#[%v:]
+      - name: PodIpAssignedLatency - Bucket 0.1s
+        query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="0.1"})#[%v:]
+      - name: PodIpAssignedLatency - Bucket 0.5s
+        query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="0.5"})#[%v:]
+      - name: PodIpAssignedLatency - Bucket 1s
+        query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="1"})#[%v:]
+      - name: PodIpAssignedLatency - Bucket 3s
+        query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="3"})#[%v:]
+      - name: PodIpAssignedLatency - Bucket 5s
+        query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="5"})#[%v:]
+      - name: PodIpAssignedLatency - Bucket 10s
+        query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="10"})#[%v:]
+      - name: PodIpAssignedLatency - Bucket 60s
+        query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="60"})#[%v:]
+      - name: PodIpAssignedLatency - Bucket 600s
+        query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="600"})#[%v:]
+      - name: PodIpAssignedLatency - Perc99
+        query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[1%v]))
+          by (le))
+        threshold: 30
       unit: ms
     identifier: GetNetPolicyLatencyMetrics
     instances: []
@@ -38,7 +81,56 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 3
+      max: 1
+      basename: null
+    replicaspernamespace: 1
+    tuningset: defaultQPS
+    objectbundle:
+    - basename: np-egress-allow-podcreation
+      objecttemplatepath: manifests/policy-client-egress-allow.yaml
+      templatefillmap:
+        TargetLabelKey: group
+        TargetLabelValue: net-policy-latency
+      listunknownobjectoptions: null
+    - basename: np-egress-apiserver-podcreation
+      objecttemplatepath: manifests/policy-client-egress-apiserver.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+  measurements: []
+  module:
+    path: ""
+    params: {}
+  name: Creating allow egress network policies for pod creation latency test
+- phases:
+  - namespacerange:
+      min: 1
+      max: 1
+      basename: null
+    replicaspernamespace: 250
+    tuningset: defaultQPS
+    objectbundle:
+    - basename: np-latency-deny
+      objecttemplatepath: manifests/policy-deny.yaml
+      templatefillmap:
+        TargetLabelKey: group
+        TargetLabelValue: net-policy-latency
+      listunknownobjectoptions: null
+    - basename: np-latency-allow-podcreation
+      objecttemplatepath: manifests/policy-allow-podcreation.yaml
+      templatefillmap:
+        TargetLabelKey: group
+        TargetLabelValue: net-policy-latency
+        TestLabelValue: np-latency
+      listunknownobjectoptions: null
+  measurements: []
+  module:
+    path: ""
+    params: {}
+  name: Creating allow and deny network policies
+- phases:
+  - namespacerange:
+      min: 1
+      max: 1
       basename: null
     replicaspernamespace: 1
     tuningset: defaultQPS
@@ -60,32 +152,63 @@ steps:
     path: ""
     params: {}
   name: Creating service accounts, roles and rolebindings
+- phases: []
+  measurements:
+  - method: WaitForControlledPodsRunning
+    params:
+      action: start
+      labelSelector: test = np-client-podcreation
+      operationTimeout: 5m
+    identifier: ""
+    instances:
+    - identifier: WaitForTestClientPods-PodCreation
+      params:
+        apiVersion: apps/v1
+        kind: Deployment
+  module:
+    path: ""
+    params: {}
+  name: Wait for test client pods (pod creation) - start measurement
 - phases:
   - namespacerange:
       min: 1
-      max: 3
+      max: 1
       basename: null
-    replicaspernamespace: 50
+    replicaspernamespace: 1
     tuningset: defaultQPS
     objectbundle:
-    - basename: np-latency-deny
-      objecttemplatepath: manifests/policy-deny.yaml
+    - basename: test-client-dep-podcreation
+      objecttemplatepath: manifests/dep-test-client-podcreation.yaml
       templatefillmap:
-        TargetLabelKey: group
-        TargetLabelValue: net-policy-latency
+        MetricsPort: 9154
+        ServiceAccountName: np-latency-test-0
+        TargetLabelSelector: group = net-policy-latency
       listunknownobjectoptions: null
   measurements: []
   module:
     path: ""
     params: {}
-  name: Creating deny network policies
+  name: Creating test client deployments - Pod Creation test
+- phases: []
+  measurements:
+  - method: WaitForControlledPodsRunning
+    params:
+      action: gather
+    identifier: ""
+    instances:
+    - identifier: WaitForTestClientPods-PodCreation
+      params: {}
+  module:
+    path: ""
+    params: {}
+  name: Wait for test client pods (pod creation) - gather measuerement
 - phases: []
   measurements:
   - method: WaitForControlledPodsRunning
     params:
       action: start
       labelSelector: group = net-policy-latency
-      operationTimeout: 2m
+      operationTimeout: 5m
     identifier: ""
     instances:
     - identifier: WaitForRunningDeployments
@@ -99,15 +222,15 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 3
+      max: 1
       basename: null
-    replicaspernamespace: 50
+    replicaspernamespace: 250
     tuningset: defaultQPS
     objectbundle:
     - basename: np-dep
       objecttemplatepath: dep.yaml
       templatefillmap:
-        NumReplicas: 1
+        NumReplicas: 4
         TargetLabelKey: group
         TargetLabelValue: net-policy-latency
         TestLabelValue: np-latency
@@ -136,7 +259,7 @@ steps:
     params:
       action: start
       labelSelector: test = np-client
-      operationTimeout: 2m
+      operationTimeout: 5m
     identifier: ""
     instances:
     - identifier: WaitForTestClientPods
@@ -150,7 +273,7 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 3
+      max: 1
       basename: null
     replicaspernamespace: 1
     tuningset: defaultQPS
@@ -165,7 +288,7 @@ steps:
   module:
     path: ""
     params: {}
-  name: Creating test client deployments
+  name: Creating test client deployments - Policy Creation test
 - phases: []
   measurements:
   - method: WaitForControlledPodsRunning
@@ -182,9 +305,9 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 3
+      max: 1
       basename: null
-    replicaspernamespace: 50
+    replicaspernamespace: 250
     tuningset: defaultQPS
     objectbundle:
     - basename: np-latency-allow
@@ -203,17 +326,29 @@ steps:
   measurements:
   - method: Sleep
     params:
-      duration: 2m
+      duration: 1m
     identifier: Wait
     instances: []
   module:
     path: ""
     params: {}
-  name: Wait 2min for pods to be reached
+  name: Wait 1min for pods to be reached
+- phases: []
+  measurements:
+  - method: GenericPrometheusQuery
+    params:
+      action: gather
+      enableViolations: true
+    identifier: GetNetPolicyLatencyMetrics
+    instances: []
+  module:
+    path: ""
+    params: {}
+  name: Gather measurements
 - phases:
   - namespacerange:
       min: 1
-      max: 3
+      max: 1
       basename: null
     replicaspernamespace: 0
     tuningset: defaultQPS
@@ -222,12 +357,16 @@ steps:
       objecttemplatepath: dep.yaml
       templatefillmap: {}
       listunknownobjectoptions: null
-    - basename: np-latency-deny
-      objecttemplatepath: networkpolicy-deny.yaml
+    - basename: np-latency-allow
+      objecttemplatepath: manifests/policy-allow.yaml
       templatefillmap: {}
       listunknownobjectoptions: null
-    - basename: np-latency-allow
-      objecttemplatepath: networkpolicy-allow.yaml
+    - basename: np-latency-deny
+      objecttemplatepath: manifests/policy-deny.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+    - basename: np-latency-allow-podcreation
+      objecttemplatepath: manifests/policy-allow-podcreation.yaml
       templatefillmap: {}
       listunknownobjectoptions: null
   measurements: []
@@ -238,7 +377,7 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 3
+      max: 1
       basename: null
     replicaspernamespace: 0
     tuningset: defaultQPS
@@ -247,8 +386,28 @@ steps:
       objecttemplatepath: manifests/dep-test-client.yaml
       templatefillmap: {}
       listunknownobjectoptions: null
+    - basename: test-client-dep-podcreation
+      objecttemplatepath: manifests/dep-test-client-podcreation.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+    - basename: np-egress-allow-podcreation
+      objecttemplatepath: manifests/policy-client-egress-allow.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+    - basename: np-egress-apiserver-podcreation
+      objecttemplatepath: manifests/policy-client-egress-apiserver.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
     - basename: np-latency-test
-      objecttemplatepath: manifests/test-client-permissions.yaml
+      objecttemplatepath: manifests/serviceaccount.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+    - basename: np-latency-test
+      objecttemplatepath: manifests/role.yaml
+      templatefillmap: {}
+      listunknownobjectoptions: null
+    - basename: np-latency-test
+      objecttemplatepath: manifests/rolebinding.yaml
       templatefillmap: {}
       listunknownobjectoptions: null
   measurements: []
@@ -267,22 +426,12 @@ steps:
       params: {}
     - identifier: WaitForTestClientPods
       params: {}
+    - identifier: WaitForTestClientPods-PodCreation
+      params: {}
   module:
     path: ""
     params: {}
   name: Waiting for resource clean up to be completed for pods
-- phases: []
-  measurements:
-  - method: GenericPrometheusQuery
-    params:
-      action: gather
-      enableViolations: true
-    identifier: GetNetPolicyLatencyMetrics
-    instances: []
-  module:
-    path: ""
-    params: {}
-  name: Gather measurements
 tuningsets:
 - name: defaultQPS
   initialdelay: 0
