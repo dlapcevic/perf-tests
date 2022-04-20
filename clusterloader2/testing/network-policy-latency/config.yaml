@@ -1,14 +1,15 @@
-{{$PODS_PER_DEP := DefaultParam .CL2_PODS_PER_DEP 1}}
-{{$BASE_METRICS_PORT := DefaultParam .CL2_BASE_METRICS_PORT 9154}}
-
 {{$serviceAccountName := "np-latency-test"}}
 {{$testLabelValue := "np-latency"}}
 {{$targetLabelKey := "group"}}
 {{$targetLabelValue := "net-policy-latency"}}
 
-{{$qps := 20}}
-{{$namespaces := 10}}
-{{$replicasPerNamespace := 100}}
+{{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
+{{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT $LOAD_TEST_THROUGHPUT}}
+
+{{$namespaces := DefaultParam .CL2_NAMESPACES 10}}
+{{$replicasPerNamespace := DefaultParam .CL2_REPLICAS_PER_NAMESPACE 100}}
+{{$PODS_PER_DEP := DefaultParam .CL2_PODS_PER_DEP 1}}
+{{$BASE_METRICS_PORT := DefaultParam .CL2_BASE_METRICS_PORT 9154}}
 
 # Baseline test means that it will measure pod connectivity latency without creating network policies.
 # This only applies to the measured latency for pod creation, and not for network policy creation.
@@ -20,7 +21,10 @@ namespace:
 tuningSets:
 - name: defaultQPS
   qpsLoad:
-    qps: {{$qps}}
+    qps: {{$LOAD_TEST_THROUGHPUT}}
+- name: deleteQPS
+  qpsLoad:
+    qps: {{$DELETE_TEST_THROUGHPUT}}
 steps:
 
 - name: Start measurements
@@ -296,7 +300,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: defaultQPS
+    tuningSet: deleteQPS
     objectBundle:
     - basename: np-dep
       objectTemplatePath: dep.yaml
@@ -315,7 +319,7 @@ steps:
       min: 1
       max: {{$namespaces}}
     replicasPerNamespace: 0
-    tuningSet: defaultQPS
+    tuningSet: deleteQPS
     objectBundle:
     - basename: test-client-dep
       objectTemplatePath: manifests/dep-test-client.yaml
