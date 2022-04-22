@@ -12,7 +12,7 @@ spec:
   jobLabel: k8s-app
   selector:
     matchExpressions:
-      - {key: test, operator: In, values: [np-client, np-client-podcreation]}
+      - {key: test, operator: In, values: [np-client, np-test-client, np-client-podcreation]}
     # matchLabels:
     #   test: np-client
   namespaceSelector:

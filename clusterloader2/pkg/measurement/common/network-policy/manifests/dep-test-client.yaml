@@ -2,8 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{.Name}}
+  namespace: {{.Namespace}}
   labels:
-    test: np-client-podcreation
+    test: {{.TestClientLabel}}
 spec:
   replicas: 1
   selector:
@@ -12,9 +13,10 @@ spec:
   template:
     metadata:
       labels:
-        test: np-client-podcreation
+        test: {{.TestClientLabel}}
         name: {{.Name}}
     spec:
+    {{if .testPodCreation}}
       nodeSelector:
         test: net-policy-client
       tolerations:
@@ -22,6 +24,7 @@ spec:
         operator: Equal
         value: net-policy-client
         effect: NoSchedule
+    {{end}}
       containers:
       - name: net-policy-latency-client
         ports:
@@ -36,14 +39,22 @@ spec:
         command:
         - sh
         - -c
-        - ./network-policy-latency-client -targetLabelSelector="{{.TargetLabelSelector}}" -targetNamespace="{{.Namespace}}" -metricsPort={{.MetricsPort}} -testPodCreation=true -measureCilium=true #-maxTargets 100 
+        - ./network-policy-latency-client 
+          -targetLabelSelector="{{.TargetLabelSelector}}"
+          -targetNamespace="{{.TargetNamespace}}"
+          -metricsPort={{.MetricsPort}}
+          -testPodCreation={{.TestPodCreation}}
+          -measureCilium={{.MeasureCilium}}
+          #-maxTargets 100
         resources:
+        {{if .testPodCreation}}
           requests:
             cpu: 500m
             memory: 400Mi
-          # limits:
-          #   cpu: 900m
-          #   memory: 800Mi
+        {{end}}
+          limits:
+            cpu: 900m
+            memory: 800Mi
           # requests:
           #   cpu: 50m
           #   memory: 20Mi

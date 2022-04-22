@@ -9,3 +9,6 @@ rules:
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
     verbs: ["get", "list", "watch"]
+  # - apiGroups: ["cilium.io"]
+  #   resources: ["ciliumendpointslices"]
+  #   verbs: ["get", "list", "watch"]

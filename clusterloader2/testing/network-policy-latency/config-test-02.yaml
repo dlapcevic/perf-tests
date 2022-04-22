@@ -1,5 +1,5 @@
 {{$serviceAccountName := "np-latency-test"}}
-{{$testLabelValue := "np-test-client"}}
+{{$testLabelValue := "np-latency"}}
 {{$targetLabelKey := "group"}}
 {{$targetLabelValue := "net-policy-latency"}}
 
@@ -7,7 +7,7 @@
 {{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT 30}}
 
 {{$namespaces := DefaultParam .CL2_NAMESPACES 1}}
-{{$replicasPerNamespace := DefaultParam .CL2_REPLICAS_PER_NAMESPACE 1000}}
+{{$replicasPerNamespace := DefaultParam .CL2_REPLICAS_PER_NAMESPACE 100}}
 {{$PODS_PER_DEP := DefaultParam .CL2_PODS_PER_DEP 1}}
 {{$BASE_METRICS_PORT := DefaultParam .CL2_BASE_METRICS_PORT 9154}}
 
@@ -27,7 +27,7 @@ tuningSets:
     qps: {{$DELETE_TEST_THROUGHPUT}}
 steps:
 
-- name: Start Prometheus generic metrics measurements
+- name: Start measurements
   measurements:
   - Identifier: GetNetPolicyLatencyMetrics
     Method: GenericPrometheusQuery
@@ -120,46 +120,94 @@ steps:
           query: histogram_quantile(0.99, sum(rate(cep_propagation_latency_seconds_bucket[1%v])) by (le))
           threshold: 30
 
+{{if not $BASELINE_TEST}}
+- name: Creating allow egress network policies for pod creation latency test
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: np-egress-allow-podcreation
+      objectTemplatePath: manifests/policy-client-egress-allow.yaml
+      templateFillMap:
+        TargetLabelKey: {{$targetLabelKey}}
+        TargetLabelValue: {{$targetLabelValue}}
+    - basename: np-egress-apiserver-podcreation
+      objectTemplatePath: manifests/policy-client-egress-apiserver.yaml
+
+- name: Creating allow and deny network policies
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$replicasPerNamespace}}
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: np-latency-deny
+      objectTemplatePath: manifests/policy-deny.yaml
+      templateFillMap:
+        TargetLabelKey: {{$targetLabelKey}}
+        TargetLabelValue: {{$targetLabelValue}}
+    - basename: np-latency-allow-podcreation
+      objectTemplatePath: manifests/policy-allow-podcreation.yaml
+      templateFillMap:
+        TestLabelValue: {{$testLabelValue}}
+        TargetLabelKey: {{$targetLabelKey}}
+        TargetLabelValue: {{$targetLabelValue}}
+{{end}}
+
+- name: Creating service accounts, roles and rolebindings
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: {{$serviceAccountName}}
+      objectTemplatePath: manifests/serviceaccount.yaml
+    - basename: {{$serviceAccountName}}
+      objectTemplatePath: manifests/role.yaml
+    - basename: {{$serviceAccountName}}
+      objectTemplatePath: manifests/rolebinding.yaml
+
 - name: Wait for test client pods (pod creation) - start measurement
   measurements:
   - Method: WaitForControlledPodsRunning
     Instances:
-    - Identifier: WaitForTestClientPods
+    - Identifier: WaitForTestClientPods-PodCreation
       Params:
         apiVersion: apps/v1
         kind: Deployment
     Params:
       action: start
-      labelSelector: "test = {{$testLabelValue}}"
+      labelSelector: test = np-client-podcreation
       operationTimeout: 5m
 
-- name: Setup network policy enforcement latency measurement
-  measurements:
-  - Identifier: NetworkPolicyEnforcement
-    Method: NetworkPolicyEnforcement
-    Params:
-      action: setup
-      # targetLabelKey: {{$targetLabelKey}}
-      # targetLabelValue: {{$targetLabelValue}}
-      # podCreation: true
-      # baseline: {{$BASELINE_TEST}}
-
-- name: Start pod creation network policy enforcement latency measurement
-  measurements:
-  - Identifier: NetworkPolicyEnforcement
-    Method: NetworkPolicyEnforcement
-    Params:
-      action: create
-      targetLabelKey: {{$targetLabelKey}}
-      targetLabelValue: {{$targetLabelValue}}
-      podCreation: true
-      baseline: {{$BASELINE_TEST}}
+{{range $ns := Loop $namespaces}}
+- name: Creating test client deployments - Pod Creation test
+  phases:
+  - namespaceRange:
+      min: {{AddInt $ns 1}}
+      max: {{AddInt $ns 1}}
+    replicasPerNamespace: 1
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: test-client-dep-podcreation
+      objectTemplatePath: manifests/dep-test-client-podcreation.yaml
+      templateFillMap:
+        TargetLabelSelector: "{{$targetLabelKey}} = {{$targetLabelValue}}"
+        ServiceAccountName: "{{$serviceAccountName}}-0"
+        MetricsPort: {{AddInt $BASE_METRICS_PORT $ns}}
+{{end}}
 
 - name: Wait for test client pods (pod creation) - gather measuerement
   measurements:
   - Method: WaitForControlledPodsRunning
     Instances:
-    - Identifier: WaitForTestClientPods
+    - Identifier: WaitForTestClientPods-PodCreation
     Params:
       action: gather
 
@@ -200,22 +248,74 @@ steps:
     Params:
       action: gather
 
-- name: Wait 2min for pods to be reached
+{{if not $BASELINE_TEST}}
+- name: Wait for test client pods - start measurement
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForTestClientPods
+      Params:
+        apiVersion: apps/v1
+        kind: Deployment
+    Params:
+      action: start
+      labelSelector: test = np-client
+      operationTimeout: 5m
+
+- name: Creating test client deployments - Policy Creation test
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 1
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: test-client-dep
+      objectTemplatePath: manifests/dep-test-client.yaml
+      templateFillMap:
+        TargetLabelSelector: "{{$targetLabelKey}} = {{$targetLabelValue}}"
+        ServiceAccountName: "{{$serviceAccountName}}-0"
+
+- name: Wait for test client pods - gather measuerement
+  measurements:
+  - Method: WaitForControlledPodsRunning
+    Instances:
+    - Identifier: WaitForTestClientPods
+    Params:
+      action: gather
+
+- name: Creating allow network policies
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$replicasPerNamespace}}
+    tuningSet: defaultQPS
+    objectBundle:
+    - basename: np-latency-allow
+      objectTemplatePath: manifests/policy-allow.yaml
+      templateFillMap:
+        TestLabelValue: {{$testLabelValue}}
+        TargetLabelKey: {{$targetLabelKey}}
+        TargetLabelValue: {{$targetLabelValue}}
+{{end}}
+
+- name: Wait 3min for pods to be reached
   measurements:
    - Identifier: Wait
      Method: Sleep
      Params:
-       duration: 2m
+       duration: 3m
 
-# - name: Gather measurements
-#   measurements:
-#   - Identifier: GetNetPolicyLatencyMetrics
-#     Method: GenericPrometheusQuery
-#     Params:
-#       action: gather
-#       enableViolations: true
+- name: Gather measurements
+  measurements:
+  - Identifier: GetNetPolicyLatencyMetrics
+    Method: GenericPrometheusQuery
+    Params:
+      action: gather
+      enableViolations: true
 
-- name: Clean up target deployments
+- name: Clean up deployments and network policies
   phases:
   - namespaceRange:
       min: 1
@@ -225,26 +325,56 @@ steps:
     objectBundle:
     - basename: np-dep
       objectTemplatePath: dep.yaml
+{{if not $BASELINE_TEST}}
+    - basename: np-latency-allow
+      objectTemplatePath: manifests/policy-allow.yaml
+    - basename: np-latency-deny
+      objectTemplatePath: manifests/policy-deny.yaml
+    - basename: np-latency-allow-podcreation
+      objectTemplatePath: manifests/policy-allow-podcreation.yaml
+{{end}}
+
+- name: Clean up test client deployments and permission resources
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: 0
+    tuningSet: deleteQPS
+    objectBundle:
+    - basename: test-client-dep-podcreation
+      objectTemplatePath: manifests/dep-test-client-podcreation.yaml
+{{if not $BASELINE_TEST}}
+    - basename: test-client-dep
+      objectTemplatePath: manifests/dep-test-client.yaml
+    - basename: np-egress-allow-podcreation
+      objectTemplatePath: manifests/policy-client-egress-allow.yaml
+    - basename: np-egress-apiserver-podcreation
+      objectTemplatePath: manifests/policy-client-egress-apiserver.yaml
+    - basename: {{$serviceAccountName}}
+      objectTemplatePath: manifests/serviceaccount.yaml
+    - basename: {{$serviceAccountName}}
+      objectTemplatePath: manifests/role.yaml
+    - basename: {{$serviceAccountName}}
+      objectTemplatePath: manifests/rolebinding.yaml
+{{end}}
 
 - name: Waiting for resource clean up to be completed for pods
   measurements:
   - Method: WaitForControlledPodsRunning
     Instances:
     - Identifier: WaitForRunningDeployments
+    - Identifier: WaitForTestClientPods-PodCreation
+{{if not $BASELINE_TEST}}
+    - Identifier: WaitForTestClientPods
+{{end}}
     Params:
       action: gather
 
-- name: Setup network policy enforcement latency measurement
-  measurements:
-  - Identifier: NetworkPolicyEnforcement
-    Method: NetworkPolicyEnforcement
-    Params:
-      action: gather
-
-- name: Gather measurements
-  measurements:
-  - Identifier: GetNetPolicyLatencyMetrics
-    Method: GenericPrometheusQuery
-    Params:
-      action: gather
-      enableViolations: true
+# - name: Gather measurements
+#   measurements:
+#   - Identifier: GetNetPolicyLatencyMetrics
+#     Method: GenericPrometheusQuery
+#     Params:
+#       action: gather
+#       enableViolations: true

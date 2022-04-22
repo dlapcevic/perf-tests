@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{.Name}}
+  labels:
+    test: {{.TestClientLabel}}
+spec:
+  podSelector:
+    matchLabels:
+      test: {{.TestClientLabel}}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          {{.TargetLabelKey}}: {{.TargetLabelValue}}
