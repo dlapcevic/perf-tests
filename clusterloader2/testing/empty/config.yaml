@@ -1,0 +1,22 @@
+{{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 100}}
+{{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT 30}}
+{{$namespaces := DefaultParam .CL2_NAMESPACES 50}}
+
+name: network-policy-latency
+namespace:
+  number: {{$namespaces}}
+tuningSets:
+- name: defaultQPS
+  qpsLoad:
+    qps: {{$LOAD_TEST_THROUGHPUT}}
+- name: deleteQPS
+  qpsLoad:
+    qps: {{$DELETE_TEST_THROUGHPUT}}
+steps:
+
+- name: Wait 1min
+  measurements:
+   - Identifier: Wait
+     Method: Sleep
+     Params:
+       duration: 1m
