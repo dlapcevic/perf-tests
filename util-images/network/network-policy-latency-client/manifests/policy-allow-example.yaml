@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np-allow-np-client
+  labels:
+    group: net-policy-latency
+    test: np-latency
+spec:
+  podSelector:
+    matchLabels:
+      group: net-policy-latency
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          test: np-client

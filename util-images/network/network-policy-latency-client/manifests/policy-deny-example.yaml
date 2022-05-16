@@ -1,0 +1,12 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np-deny-all
+  labels:
+    group: net-policy-latency
+spec:
+  podSelector:
+    matchLabels:
+      group: net-policy-latency
+  policyTypes:
+  - Ingress

@@ -1,0 +1,72 @@
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: net-policy-latency-test
+  namespace: default
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: net-policy-latency-test
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: net-policy-latency-test
+subjects:
+- kind: ServiceAccount
+  name: net-policy-latency-test
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: net-policy-latency-test
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: np-test-client
+  labels:
+    test: np-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      test: np-client
+  template:
+    metadata:
+      labels:
+        test: np-client
+    spec:
+      containers:
+      - name: net-policy-latency-client
+        ports:
+        - containerPort: 9154
+          hostPort: 9154
+          name: npdelaymetrics
+          protocol: TCP
+        imagePullPolicy: Always
+        image: gcr.io/dordel-gke-dev/network-policy-latency-client:v0.0.1
+        # args:
+        #   - -targetLabelSelector "group = net-policy-latency"
+        command:
+        - sh
+        - -c
+        - ./network-policy-latency-client -targetLabelSelector "group = net-policy-latency" -targetNamespace default
+        # resources:
+        #   limits:
+        #     cpu: 70m
+        #     memory: 30Mi
+        #   requests:
+        #     cpu: 50m
+        #     memory: 20Mi
+        # ports:
+        # - containerPort: 80
+      serviceAccountName: net-policy-latency-test
