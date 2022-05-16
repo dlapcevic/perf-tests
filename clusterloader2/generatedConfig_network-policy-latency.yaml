@@ -1,8 +1,8 @@
 name: network-policy-latency
 automanagednamespaces: 0
 namespace:
-  number: 1
-  prefix: test-3d8jq6
+  number: 50
+  prefix: test-amgbcj
   deletestalenamespaces: false
   deleteautomanagednamespaces: true
   enableexistingnamespaces: false
@@ -15,6 +15,23 @@ steps:
       metricName: Network Policy Enforcement Latency
       metricVersion: v1
       queries:
+      - name: PolicyCreation - TargetCount
+        query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v:]
+      - name: PolicyCreation - Bucket 3s
+        query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="1"})#[%v:]
+      - name: PolicyCreation - Bucket 5s
+        query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="3"})#[%v:]
+      - name: PolicyCreation - Bucket 10s
+        query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="5"})#[%v:]
+      - name: PolicyCreation - Perc99
+        query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v]))
+          by (le))
+      - name: PolicyCreation - Perc90
+        query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v]))
+          by (le))
+      - name: PolicyCreation - Perc50
+        query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v]))
+          by (le))
       - name: PodCreation - TargetCount
         query: sum(policy_enforcement_latency_pod_creation_seconds_count)#[%v:]
       - name: PodCreation - Bucket 0.1s
@@ -34,9 +51,14 @@ steps:
       - name: PodCreation - Bucket 600s
         query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="600"})#[%v:]
       - name: PodCreation - Perc99
-        query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[1%v]))
+        query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v]))
           by (le))
-        threshold: 30
+      - name: PodCreation - Perc90
+        query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v]))
+          by (le))
+      - name: PodCreation - Perc50
+        query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v]))
+          by (le))
       - name: PodIpAssignedLatency - TargetCount
         query: sum(pod_ip_address_assigned_latency_seconds_count)#[%v:]
       - name: PodIpAssignedLatency - Bucket 1s
@@ -53,10 +75,15 @@ steps:
         query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="60"})#[%v:]
       - name: PodIpAssignedLatency - Bucket 600s
         query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="600"})#[%v:]
-      - name: PodIpAssignedLatency - Perc99
-        query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[1%v]))
+      - name: PodIpAssignedLatency - Perc50
+        query: histogram_quantile(0.50, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v]))
           by (le))
-        threshold: 30
+      - name: PodIpAssignedLatency - Perc90
+        query: histogram_quantile(0.90, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v]))
+          by (le))
+      - name: PodIpAssignedLatency - Perc99
+        query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v]))
+          by (le))
       - name: CEPPropagationDelay - TargetCount
         query: sum(cep_propagation_latency_seconds_count)#[%v:]
       - name: CEPPropagationDelay - Bucket 1s
@@ -74,10 +101,9 @@ steps:
       - name: CEPPropagationDelay - Bucket 600s
         query: sum(cep_propagation_latency_seconds_bucket{le="600"})#[%v:]
       - name: CEPPropagationDelay - Perc99
-        query: histogram_quantile(0.99, sum(rate(cep_propagation_latency_seconds_bucket[1%v]))
+        query: histogram_quantile(0.99, sum(rate(cep_propagation_latency_seconds_bucket[%v]))
           by (le))
-        threshold: 30
-      unit: ms
+      unit: s
     identifier: GetNetPolicyLatencyMetrics
     instances: []
   module:
@@ -106,6 +132,9 @@ steps:
   - method: NetworkPolicyEnforcement
     params:
       action: setup
+      baseline: false
+      targetLabelKey: group
+      targetLabelValue: net-policy-latency
     identifier: NetworkPolicyEnforcement
     instances: []
   module:
@@ -117,10 +146,9 @@ steps:
   - method: NetworkPolicyEnforcement
     params:
       action: create
-      baseline: true
+      expectedTargets: 1000
+      measureCilium: false
       podCreation: true
-      targetLabelKey: group
-      targetLabelValue: net-policy-latency
     identifier: NetworkPolicyEnforcement
     instances: []
   module:
@@ -146,7 +174,7 @@ steps:
     params:
       action: start
       labelSelector: group = net-policy-latency
-      operationTimeout: 5m
+      operationTimeout: 15m
     identifier: ""
     instances:
     - identifier: WaitForRunningDeployments
@@ -160,9 +188,9 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 1
+      max: 50
       basename: null
-    replicaspernamespace: 1000
+    replicaspernamespace: 360
     tuningset: defaultQPS
     objectbundle:
     - basename: np-dep
@@ -195,17 +223,41 @@ steps:
   measurements:
   - method: Sleep
     params:
-      duration: 2m
+      duration: 45m
     identifier: Wait
     instances: []
   module:
     path: ""
     params: {}
-  name: Wait 2min for pods to be reached
+  name: Wait 45min for pods to be reached (Pod creation)
+- phases: []
+  measurements:
+  - method: NetworkPolicyEnforcement
+    params:
+      action: create
+      expectedTargets: 1000
+      podCreation: false
+    identifier: NetworkPolicyEnforcement
+    instances: []
+  module:
+    path: ""
+    params: {}
+  name: Start pod creation network policy enforcement latency measurement
+- phases: []
+  measurements:
+  - method: Sleep
+    params:
+      duration: 15m
+    identifier: Wait
+    instances: []
+  module:
+    path: ""
+    params: {}
+  name: Wait 15min for pods to be reached (Policy creation)
 - phases:
   - namespacerange:
       min: 1
-      max: 1
+      max: 50
       basename: null
     replicaspernamespace: 0
     tuningset: deleteQPS

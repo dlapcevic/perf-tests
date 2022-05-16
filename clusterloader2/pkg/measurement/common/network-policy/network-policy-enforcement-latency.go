@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,15 +33,19 @@ import (
 )
 
 /*
-The measurement tests network policy enforcement latency for two cases:
-	1. Created pods that are affected by network policies
-Deploy the test clients (setup and start) with "podCreation" flag set to true,
-before creating the target pods.
-	2. Created network policies
-Deploy the test clients (setup and start) after creating the target pods.
+	The measurement tests network policy enforcement latency for two cases:
+		1. Created pods that are affected by network policies
+	Deploy the test clients (setup and start) with "podCreation" flag set to true,
+	before creating the target pods.
+		2. Created network policies
+	Deploy the test clients (setup and start) after creating the target pods.
 
-Target pods are all pods that have the specified label:
-{ targetLabelKey: targetLabelValue }.
+	Target pods are all pods that have the specified label:
+	{ targetLabelKey: targetLabelValue }.
+
+	The test is set up by this measurement, by creating the required resources,
+	including the network-policy-latency-client pods that are measuring the
+	latencies and generating metrics for them.
 */
 
 const (
@@ -48,8 +53,12 @@ const (
 	netPolicyTestNamespace       = "net-policy-test"
 	netPolicyTestClientName      = "np-test-client"
 	testNamespacePrefix          = "test-"
-	policyCreationPrefix         = "policy-creation"
-	podCreationPrefix            = "pod-creation"
+	policyCreationTest           = "policy-creation"
+	podCreationTest              = "pod-creation"
+	// denyLabelValue is used for network policies to allow connections only to
+	// the pods with the specified label, effectively denying other connections,
+	// as long as there isn't another network policy allowing it for other labels.
+	denyLabelValue = "deny-traffic"
 
 	//manifestPathPrefix             = "$GOPATH/src/k8s.io/perf-tests/clusterloader2/pkg/measurement/common/network-policy/manifests"
 	// Using this during testing.
@@ -58,7 +67,7 @@ const (
 	serviceAcccountFilePath        = manifestPathPrefix + "/" + "serviceaccount.yaml"
 	clusterRoleFilePath            = manifestPathPrefix + "/" + "clusterrole.yaml"
 	clusterRoleBindingFilePath     = manifestPathPrefix + "/" + "clusterrolebinding.yaml"
-	clientDeploymenFilePath        = manifestPathPrefix + "/" + "dep-test-client.yaml"
+	clientDeploymentFilePath       = manifestPathPrefix + "/" + "dep-test-client.yaml"
 	policyEgressApiserverFilePath  = manifestPathPrefix + "/" + "policy-egress-allow-apiserver.yaml"
 	policyEgressTargetPodsFilePath = manifestPathPrefix + "/" + "policy-egress-allow-target-pods.yaml"
 )
@@ -82,7 +91,9 @@ type networkPolicyEnforcementMeasurement struct {
 	// targetNamespaces are used to direct one client to measure a single
 	// namespace.
 	targetNamespaces []string
-	baseline         bool
+	// baseline test does not create network policies.
+	// baseline is only used for pod creation latency test.
+	baseline bool
 }
 
 // Execute - Available actions:
@@ -119,6 +130,21 @@ func (nps *networkPolicyEnforcementMeasurement) setup(config *measurement.Config
 		return fmt.Errorf("error while creating namespace: %v", err)
 	}
 
+	// Create network policies for non-baseline test.
+	if !nps.baseline {
+		if err = nps.createPolicyAllowAPIServer(); err != nil {
+			return err
+		}
+
+		if err = nps.createPolicyToTargetPods(podCreationTest, true); err != nil {
+			return err
+		}
+
+		if err = nps.createPolicyToTargetPods(policyCreationTest, false); err != nil {
+			return err
+		}
+	}
+
 	return nps.createPermissionResources()
 }
 
@@ -128,8 +154,19 @@ func (nps *networkPolicyEnforcementMeasurement) initializeMeasurement(config *me
 	}
 
 	var err error
-	nps.testClientNamespace, err = util.GetStringOrDefault(config.Params, "testClientNamespace", netPolicyTestNamespace)
-	if err != nil {
+	if nps.targetLabelKey, err = util.GetString(config.Params, "targetLabelKey"); err != nil {
+		return err
+	}
+
+	if nps.targetLabelValue, err = util.GetString(config.Params, "targetLabelValue"); err != nil {
+		return err
+	}
+
+	if nps.testClientNamespace, err = util.GetStringOrDefault(config.Params, "testClientNamespace", netPolicyTestNamespace); err != nil {
+		return err
+	}
+
+	if nps.baseline, err = util.GetBoolOrDefault(config.Params, "baseline", false); err != nil {
 		return err
 	}
 
@@ -178,13 +215,7 @@ func (nps *networkPolicyEnforcementMeasurement) createPermissionResources() erro
 }
 
 func (nps *networkPolicyEnforcementMeasurement) create(config *measurement.Config) error {
-	var err error
-	nps.targetLabelKey, err = util.GetString(config.Params, "targetLabelKey")
-	if err != nil {
-		return err
-	}
-
-	nps.targetLabelValue, err = util.GetString(config.Params, "targetLabelValue")
+	expectedTargets, err := util.GetIntOrDefault(config.Params, "expectedTargets", 1000)
 	if err != nil {
 		return err
 	}
@@ -199,18 +230,9 @@ func (nps *networkPolicyEnforcementMeasurement) create(config *measurement.Confi
 		return err
 	}
 
-	nps.baseline, err = util.GetBoolOrDefault(config.Params, "baseline", false)
+	measureCilium, err := util.GetBoolOrDefault(config.Params, "measureCilium", false)
 	if err != nil {
 		return err
-	}
-
-	// Baseline is only used for pod creation test. It works without creating
-	// network policies.
-	nps.baseline = podCreation && nps.baseline
-	if !nps.baseline {
-		if err = nps.createAllowApiserverPolicy(); err != nil {
-			return err
-		}
 	}
 
 	templateMap := map[string]interface{}{
@@ -220,8 +242,9 @@ func (nps *networkPolicyEnforcementMeasurement) create(config *measurement.Confi
 		"TargetLabelSelector": fmt.Sprintf("%s = %s", nps.targetLabelKey, nps.targetLabelValue),
 		"MetricsPort":         metricsPort,
 		"TestPodCreation":     podCreation,
-		"MeasureCilium":       podCreation,
+		"MeasureCilium":       measureCilium,
 		"ServiceAccountName":  netPolicyTestClientName,
+		"ExpectedTargets":     expectedTargets,
 	}
 
 	if podCreation {
@@ -233,42 +256,71 @@ func (nps *networkPolicyEnforcementMeasurement) create(config *measurement.Confi
 
 func (nps *networkPolicyEnforcementMeasurement) startPodCreationTest(depTemplateMap map[string]interface{}) error {
 	klog.Infof("Starting pod creation network policy enforcement latency measurement")
+	return nps.createTestClientDeployments(depTemplateMap, podCreationTest, true)
+}
 
-	if !nps.baseline {
-		err := nps.createAllowPolicyToTargetPods()
-		if err != nil {
-			return err
-		}
+func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTemplateMap map[string]interface{}) error {
+	klog.Infof("Starting policy creation network policy enforcement latency measurement")
+
+	if nps.baseline {
+		klog.Infof("Baseline flag is specified, which is only used for pod creation test, and means that no network policies should be created. Skipping policy creation test")
+		return nil
 	}
 
-	return nps.createTestClientDeployments(depTemplateMap, podCreationPrefix)
+	if err := nps.createTestClientDeployments(depTemplateMap, policyCreationTest, true); err != nil {
+		return err
+	}
+
+	klog.Infof("Waiting for policy creation test client pods to be running")
+	for retries := 0; retries < 5; retries++ {
+		clientPodList, err := nps.k8sClient.CoreV1().Pods(nps.testClientNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: fmt.Sprintf("type = %s", policyCreationTest)})
+		if err == nil {
+			allReady := true
+
+			for _, clientPod := range clientPodList.Items {
+				if clientPod.Status.Phase != corev1.PodRunning {
+					allReady = false
+					break
+				}
+			}
+
+			if allReady {
+				klog.Infof("All policy creation test client pods are running")
+				break
+			}
+		}
+
+		time.Sleep(10 * time.Second)
+	}
+
+	return nps.createPolicyToTargetPods(policyCreationTest, true)
 }
 
-func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(templateMap map[string]interface{}) error {
-	return nil
-}
-
-func (nps *networkPolicyEnforcementMeasurement) createAllowApiserverPolicy() error {
-	policyName := "policy-allow-egress-apiserver"
+func (nps *networkPolicyEnforcementMeasurement) createPolicyAllowAPIServer() error {
+	policyName := "allow-egress-apiserver"
 	if policy, err := nps.k8sClient.NetworkingV1().NetworkPolicies(nps.testClientNamespace).Get(context.TODO(), policyName, metav1.GetOptions{}); err == nil && policy != nil {
 		klog.Infof("Attempting to create %q network policy, but it already exists", policyName)
 		return nil
 	}
 
-	masterIPs, err := util.GetMasterIPs(nps.k8sClient, corev1.NodeInternalIP)
+	// Get kube-apiserver IP address to allow connections to it from the test
+	// client pods. It's needed since network policies are denying connections
+	// with all endpoints that are not in the specified Labels / CIDR range.
+	endpoints, err := nps.k8sClient.CoreV1().Endpoints(corev1.NamespaceDefault).Get(context.TODO(), "kubernetes", metav1.GetOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get kube-apiserver Endpoints object: %v", err)
 	}
 
-	if len(masterIPs) == 0 {
-		return fmt.Errorf("util.GetMasterIPs(_, %q) returned 0 IPs", corev1.NodeInternalIP)
+	if len(endpoints.Subsets) == 0 || len(endpoints.Subsets[0].Addresses) == 0 {
+		return fmt.Errorf("kube-apiserver Endpoints object does not have an IP address")
 	}
 
+	kubeAPIServerIP := endpoints.Subsets[0].Addresses[0].IP
 	templateMap := map[string]interface{}{
 		"Name":            policyName,
 		"Namespace":       nps.testClientNamespace,
 		"TestClientLabel": netPolicyTestClientName,
-		"MasterIP":        masterIPs[0],
+		"kubeAPIServerIP": kubeAPIServerIP,
 	}
 
 	if err := nps.framework.ApplyTemplatedManifests(policyEgressApiserverFilePath, templateMap); err != nil {
@@ -278,31 +330,52 @@ func (nps *networkPolicyEnforcementMeasurement) createAllowApiserverPolicy() err
 	return nil
 }
 
-func (nps *networkPolicyEnforcementMeasurement) createAllowPolicyToTargetPods() error {
+func (nps *networkPolicyEnforcementMeasurement) createPolicyToTargetPods(testType string, allowForTargetPods bool) error {
+	//var policyName string
+	//if policy, err := nps.k8sClient.NetworkingV1().NetworkPolicies(nps.testClientNamespace).Get(context.TODO(), policyName, metav1.GetOptions{}); err == nil && policy != nil {
+	//	klog.Infof("Attempting to create %q network policy, but it already exists", policyName)
+	//	return nil
+	//}
+
 	templateMap := map[string]interface{}{
-		"Name":             "policy-allow-egress-target-pods",
-		"Namespace":        nps.testClientNamespace,
-		"TestClientLabel":  netPolicyTestClientName,
-		"TargetLabelKey":   nps.targetLabelKey,
-		"TargetLabelValue": nps.targetLabelValue,
+		//"Name":           policyName,
+		"Namespace":      nps.testClientNamespace,
+		"TypeLabel":      testType,
+		"TargetLabelKey": nps.targetLabelKey,
+		//"TargetLabelValue": nps.targetLabelValue,
+	}
+
+	if allowForTargetPods {
+		templateMap["Name"] = fmt.Sprintf("allow-egress-target-%s", testType)
+		templateMap["TargetLabelValue"] = nps.targetLabelValue
+	} else {
+		templateMap["Name"] = fmt.Sprintf("deny-egress-target-%s", testType)
+		templateMap["TargetLabelValue"] = denyLabelValue
 	}
 
 	if err := nps.framework.ApplyTemplatedManifests(policyEgressTargetPodsFilePath, templateMap); err != nil {
-		return fmt.Errorf("error while creating allow egress to apiserver network policy: %v", err)
+		return fmt.Errorf("error while creating allow egress to pods network policy: %v", err)
 	}
 
 	return nil
 }
 
-func (nps *networkPolicyEnforcementMeasurement) createTestClientDeployments(templateMap map[string]interface{}, namePrefix string) error {
+func (nps *networkPolicyEnforcementMeasurement) createTestClientDeployments(templateMap map[string]interface{}, testType string, incrementPorts bool) error {
 	klog.Infof("Creating test client deployments for measurement %q", networkPolicyEnforcementName)
+	templateMap["TypeLabel"] = testType
 
 	// Create a test client deployment for each test namespace.
 	for i, ns := range nps.targetNamespaces {
-		templateMap["Name"] = fmt.Sprintf("%s-%s-%d", namePrefix, netPolicyTestClientName, i)
+		templateMap["Name"] = fmt.Sprintf("%s-%s-%d", testType, netPolicyTestClientName, i)
 		templateMap["TargetNamespace"] = ns
 
-		if err := nps.framework.ApplyTemplatedManifests(clientDeploymenFilePath, templateMap); err != nil {
+		// Metrics ports need to be different when there will be multiple test
+		// client pods scheduled on the same node.
+		if incrementPorts {
+			templateMap["MetricsPort"] = templateMap["MetricsPort"].(int) + 1
+		}
+
+		if err := nps.framework.ApplyTemplatedManifests(clientDeploymentFilePath, templateMap); err != nil {
 			return fmt.Errorf("error while creating test client deployment: %v", err)
 		}
 	}

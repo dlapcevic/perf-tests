@@ -6,14 +6,14 @@
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 100}}
 {{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT 30}}
 
-{{$namespaces := DefaultParam .CL2_NAMESPACES 1}}
-{{$replicasPerNamespace := DefaultParam .CL2_REPLICAS_PER_NAMESPACE 1000}}
+{{$namespaces := DefaultParam .CL2_NAMESPACES 50}}
+{{$replicasPerNamespace := DefaultParam .CL2_REPLICAS_PER_NAMESPACE 360}}
 {{$PODS_PER_DEP := DefaultParam .CL2_PODS_PER_DEP 1}}
 {{$BASE_METRICS_PORT := DefaultParam .CL2_BASE_METRICS_PORT 9154}}
 
 # Baseline test means that it will measure pod connectivity latency without creating network policies.
 # This only applies to the measured latency for pod creation, and not for network policy creation.
-{{$BASELINE_TEST := DefaultParam .CL_BASELINE_TEST true}}
+{{$BASELINE_TEST := DefaultParam .CL_BASELINE_TEST false}}
 
 name: network-policy-latency
 namespace:
@@ -35,7 +35,7 @@ steps:
       action: start
       metricName: Network Policy Enforcement Latency
       metricVersion: v1
-      unit: ms
+      unit: s
       queries:
 {{if not $BASELINE_TEST}}
         - name: PolicyCreation - TargetCount
@@ -47,13 +47,13 @@ steps:
         - name: PolicyCreation - Bucket 10s
           query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="5"})#[%v:]
         - name: PolicyCreation - Perc99
-          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[1%v])) by (le))
-          threshold: 10
-        # - name: PolicyCreation - Perc90
-        #   query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
-        # - name: PolicyCreation - Perc50
-        #   query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
-        #   threshold: 5
+          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+          # threshold: 10
+        - name: PolicyCreation - Perc90
+          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+        - name: PolicyCreation - Perc50
+          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+          # threshold: 5
 {{end}}
         - name: PodCreation - TargetCount
           query: sum(policy_enforcement_latency_pod_creation_seconds_count)#[%v:]
@@ -74,13 +74,13 @@ steps:
         - name: PodCreation - Bucket 600s
           query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="600"})#[%v:]
         - name: PodCreation - Perc99
-          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[1%v])) by (le))
-          threshold: 30
-        # - name: PodCreation - Perc90
-        #   query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
-        # - name: PodCreation - Perc50
-        #   query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
-        #   threshold: 15
+          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+          # threshold: 30
+        - name: PodCreation - Perc90
+          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+        - name: PodCreation - Perc50
+          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+          # threshold: 15
         - name: PodIpAssignedLatency - TargetCount
           query: sum(pod_ip_address_assigned_latency_seconds_count)#[%v:]
         - name: PodIpAssignedLatency - Bucket 1s
@@ -97,9 +97,13 @@ steps:
           query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="60"})#[%v:]
         - name: PodIpAssignedLatency - Bucket 600s
           query: sum(pod_ip_address_assigned_latency_seconds_bucket{le="600"})#[%v:]
+        - name: PodIpAssignedLatency - Perc50
+          query: histogram_quantile(0.50, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+        - name: PodIpAssignedLatency - Perc90
+          query: histogram_quantile(0.90, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
         - name: PodIpAssignedLatency - Perc99
-          query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[1%v])) by (le))
-          threshold: 30
+          query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+          # threshold: 30
         - name: CEPPropagationDelay - TargetCount
           query: sum(cep_propagation_latency_seconds_count)#[%v:]
         - name: CEPPropagationDelay - Bucket 1s
@@ -117,8 +121,47 @@ steps:
         - name: CEPPropagationDelay - Bucket 600s
           query: sum(cep_propagation_latency_seconds_bucket{le="600"})#[%v:]
         - name: CEPPropagationDelay - Perc99
-          query: histogram_quantile(0.99, sum(rate(cep_propagation_latency_seconds_bucket[1%v])) by (le))
-          threshold: 30
+          query: histogram_quantile(0.99, sum(rate(cep_propagation_latency_seconds_bucket[%v])) by (le))
+          # threshold: 30
+        # - name: PodReadyStateLatency - TargetCount
+        #   query: sum(pod_ready_latency_seconds_count)#[%v:]
+        # - name: PodReadyStateLatency - Bucket 1s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="1"})#[%v:]
+        # - name: PodReadyStateLatency - Bucket 3s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="3"})#[%v:]
+        # - name: PodReadyStateLatency - Bucket 5s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="5"})#[%v:]
+        # - name: PodReadyStateLatency - Bucket 10s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="10"})#[%v:]
+        # - name: PodReadyStateLatency - Bucket 30s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="30"})#[%v:]
+        # - name: PodReadyStateLatency - Bucket 60s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="60"})#[%v:]
+        # - name: PodReadyStateLatency - Bucket 600s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="600"})#[%v:]
+        # - name: PodReadyStateLatency - Perc99
+        #   query: histogram_quantile(0.99, sum(rate(pod_ready_latency_seconds_bucket[%v])) by (le))
+        #   threshold: 30
+        # - name: PodScheduledLatency - TargetCount
+        #   query: sum(pod_scheduled_latency_seconds_count)#[%v:]
+        # - name: PodScheduledLatency - Bucket 1s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="1"})#[%v:]
+        # - name: PodScheduledLatency - Bucket 3s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="3"})#[%v:]
+        # - name: PodScheduledLatency - Bucket 5s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="5"})#[%v:]
+        # - name: PodScheduledLatency - Bucket 10s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="10"})#[%v:]
+        # - name: PodScheduledLatency - Bucket 30s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="30"})#[%v:]
+        # - name: PodScheduledLatency - Bucket 60s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="60"})#[%v:]
+        # - name: PodScheduledLatency - Bucket 600s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="600"})#[%v:]
+        # - name: PodScheduledLatency - Perc99
+        #   query: histogram_quantile(0.99, sum(rate(pod_scheduled_latency_seconds_bucket[%v])) by (le))
+        #   threshold: 30
+        
 
 - name: Wait for test client pods (pod creation) - start measurement
   measurements:
@@ -139,10 +182,10 @@ steps:
     Method: NetworkPolicyEnforcement
     Params:
       action: setup
-      # targetLabelKey: {{$targetLabelKey}}
-      # targetLabelValue: {{$targetLabelValue}}
+      targetLabelKey: {{$targetLabelKey}}
+      targetLabelValue: {{$targetLabelValue}}
+      baseline: {{$BASELINE_TEST}}
       # podCreation: true
-      # baseline: {{$BASELINE_TEST}}
 
 - name: Start pod creation network policy enforcement latency measurement
   measurements:
@@ -150,10 +193,9 @@ steps:
     Method: NetworkPolicyEnforcement
     Params:
       action: create
-      targetLabelKey: {{$targetLabelKey}}
-      targetLabelValue: {{$targetLabelValue}}
       podCreation: true
-      baseline: {{$BASELINE_TEST}}
+      expectedTargets: 1000
+      measureCilium: false # false for Calico, true for Cilium
 
 - name: Wait for test client pods (pod creation) - gather measuerement
   measurements:
@@ -174,7 +216,7 @@ steps:
     Params:
       action: start
       labelSelector: "{{$targetLabelKey}} = {{$targetLabelValue}}"
-      operationTimeout: 5m
+      operationTimeout: 15m
 
 - name: Creating deployments
   phases:
@@ -200,12 +242,34 @@ steps:
     Params:
       action: gather
 
-- name: Wait 2min for pods to be reached
+- name: Wait 15min for pods to be reached (Pod creation)
   measurements:
    - Identifier: Wait
      Method: Sleep
      Params:
-       duration: 2m
+       duration: 15m
+
+{{if not $BASELINE_TEST}}
+- name: Start pod creation network policy enforcement latency measurement
+  measurements:
+  - Identifier: NetworkPolicyEnforcement
+    Method: NetworkPolicyEnforcement
+    Params:
+      action: create
+      # targetLabelKey: {{$targetLabelKey}}
+      # targetLabelValue: {{$targetLabelValue}}
+      # baseline: {{$BASELINE_TEST}}
+      podCreation: false
+      expectedTargets: 1000
+      # measureCilium: false # false for Calico, true for Cilium
+
+- name: Wait 5min for pods to be reached (Policy creation)
+  measurements:
+   - Identifier: Wait
+     Method: Sleep
+     Params:
+       duration: 5m
+{{end}}
 
 # - name: Gather measurements
 #   measurements:

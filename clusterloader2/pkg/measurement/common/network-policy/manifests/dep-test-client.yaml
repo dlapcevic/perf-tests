@@ -5,6 +5,7 @@ metadata:
   namespace: {{.Namespace}}
   labels:
     test: {{.TestClientLabel}}
+    type: {{.TypeLabel}}
 spec:
   replicas: 1
   selector:
@@ -13,10 +14,11 @@ spec:
   template:
     metadata:
       labels:
-        test: {{.TestClientLabel}}
         name: {{.Name}}
+        test: {{.TestClientLabel}}
+        type: {{.TypeLabel}}
     spec:
-    {{if .testPodCreation}}
+    {{if .TestPodCreation}}
       nodeSelector:
         test: net-policy-client
       tolerations:
@@ -33,7 +35,7 @@ spec:
           name: npdelaymetrics
           protocol: TCP
         imagePullPolicy: Always
-        image: gcr.io/gke-networking-test-images/scale-tests/network-policy-latency-client:v0.0.3
+        image: gcr.io/gke-networking-test-images/scale-tests/network-policy-latency-client:v0.0.4
         # args:
         #   - -targetLabelSelector "group = net-policy-latency"
         command:
@@ -45,9 +47,9 @@ spec:
           -metricsPort={{.MetricsPort}}
           -testPodCreation={{.TestPodCreation}}
           -measureCilium={{.MeasureCilium}}
-          #-maxTargets 100
+          -expectedTargets={{.ExpectedTargets}}
         resources:
-        {{if .testPodCreation}}
+        {{if .TestPodCreation}}
           requests:
             cpu: 500m
             memory: 400Mi
