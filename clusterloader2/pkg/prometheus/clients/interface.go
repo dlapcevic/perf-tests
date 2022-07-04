@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,24 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package provider
+package prom
 
-const (
-	AKSName         = "aks"
-	AWSName         = "aws"
-	AutopilotName   = "autopilot"
-	EKSName         = "eks"
-	GCEName         = "gce"
-	GKEName         = "gke"
-	GKEKubemarkName = "gkekubemark"
-	KCPName         = "kcp"
-	KindName        = "kind"
-	KubemarkName    = "kubemark"
-	LocalName       = "local"
-	SkeletonName    = "skeleton"
-	VsphereName     = "vsphere"
+import (
+	"time"
 )
 
-const (
-	RootKubeConfigKey = "ROOT_KUBECONFIG"
-)
+// Client provides interface for communicating with the Prometheus API.
+type Client interface {
+	// Query sends a GET request to Prometheus with the "query" field
+	// in the URL's query string set using the provided arguments.
+	Query(query string, queryTime time.Time) ([]byte, error)
+}
