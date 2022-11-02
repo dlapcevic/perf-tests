@@ -31,7 +31,7 @@ spec:
       - name: net-policy-latency-client
         ports:
         - containerPort: {{.MetricsPort}}
-          hostPort: {{.MetricsPort}}
+          # hostPort: {{.MetricsPort}}
           name: npdelaymetrics
           protocol: TCP
         imagePullPolicy: Always

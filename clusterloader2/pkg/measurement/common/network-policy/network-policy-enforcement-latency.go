@@ -256,7 +256,7 @@ func (nps *networkPolicyEnforcementMeasurement) create(config *measurement.Confi
 
 func (nps *networkPolicyEnforcementMeasurement) startPodCreationTest(depTemplateMap map[string]interface{}) error {
 	klog.Infof("Starting pod creation network policy enforcement latency measurement")
-	return nps.createTestClientDeployments(depTemplateMap, podCreationTest, true)
+	return nps.createTestClientDeployments(depTemplateMap, podCreationTest)
 }
 
 func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTemplateMap map[string]interface{}) error {
@@ -267,7 +267,7 @@ func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTempl
 		return nil
 	}
 
-	if err := nps.createTestClientDeployments(depTemplateMap, policyCreationTest, true); err != nil {
+	if err := nps.createTestClientDeployments(depTemplateMap, policyCreationTest); err != nil {
 		return err
 	}
 
@@ -360,7 +360,7 @@ func (nps *networkPolicyEnforcementMeasurement) createPolicyToTargetPods(testTyp
 	return nil
 }
 
-func (nps *networkPolicyEnforcementMeasurement) createTestClientDeployments(templateMap map[string]interface{}, testType string, incrementPorts bool) error {
+func (nps *networkPolicyEnforcementMeasurement) createTestClientDeployments(templateMap map[string]interface{}, testType string) error {
 	klog.Infof("Creating test client deployments for measurement %q", networkPolicyEnforcementName)
 	templateMap["TypeLabel"] = testType
 
@@ -371,9 +371,9 @@ func (nps *networkPolicyEnforcementMeasurement) createTestClientDeployments(temp
 
 		// Metrics ports need to be different when there will be multiple test
 		// client pods scheduled on the same node.
-		if incrementPorts {
-			templateMap["MetricsPort"] = templateMap["MetricsPort"].(int) + 1
-		}
+		//if incrementPorts {
+		//	templateMap["MetricsPort"] = templateMap["MetricsPort"].(int) + 1
+		//}
 
 		if err := nps.framework.ApplyTemplatedManifests(clientDeploymentFilePath, templateMap); err != nil {
 			return fmt.Errorf("error while creating test client deployment: %v", err)
