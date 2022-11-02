@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: perfdash
+  namespace: perfdash
   labels:
     app: perfdash
 spec:
@@ -15,7 +16,7 @@ spec:
     spec:
       containers:
       - name: perfdash
-        image: gcr.io/k8s-staging-perf-tests/perfdash:2.41
+        image: gcr.io/k8s-staging-perf-tests/perfdash:2.44
         command:
           - /perfdash
           -   --www=true

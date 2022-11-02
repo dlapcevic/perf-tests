@@ -65,20 +65,6 @@ func ListRuntimeObjectsForKind(d dynamic.Interface, gvr schema.GroupVersionResou
 	return runtimeObjectsList, nil
 }
 
-// GetNameFromRuntimeObject returns name of given runtime object.
-func GetNameFromRuntimeObject(obj runtime.Object) (string, error) {
-	switch typed := obj.(type) {
-	case *unstructured.Unstructured:
-		return typed.GetName(), nil
-	default:
-		metaObjectAccessor, ok := obj.(metav1.ObjectMetaAccessor)
-		if !ok {
-			return "", fmt.Errorf("unsupported kind when getting name: %v", obj)
-		}
-		return metaObjectAccessor.GetObjectMeta().GetName(), nil
-	}
-}
-
 // GetResourceVersionFromRuntimeObject returns resource version of given runtime object.
 func GetResourceVersionFromRuntimeObject(obj runtime.Object) (uint64, error) {
 	accessor, err := meta.Accessor(obj)
@@ -90,76 +76,6 @@ func GetResourceVersionFromRuntimeObject(obj runtime.Object) (uint64, error) {
 		return 0, nil
 	}
 	return strconv.ParseUint(version, 10, 64)
-}
-
-// GetNamespaceFromRuntimeObject returns namespace of given runtime object.
-func GetNamespaceFromRuntimeObject(obj runtime.Object) (string, error) {
-	switch typed := obj.(type) {
-	case *unstructured.Unstructured:
-		return typed.GetNamespace(), nil
-	default:
-		metaObjectAccessor, ok := obj.(metav1.ObjectMetaAccessor)
-		if !ok {
-			return "", fmt.Errorf("unsupported kind when getting namespace: %v", obj)
-		}
-		return metaObjectAccessor.GetObjectMeta().GetNamespace(), nil
-	}
-}
-
-// GetSelectorFromRuntimeObject returns selector of given runtime object.
-func GetSelectorFromRuntimeObject(obj runtime.Object) (labels.Selector, error) {
-	switch typed := obj.(type) {
-	case *unstructured.Unstructured:
-		return getSelectorFromUnstrutured(typed)
-	case *corev1.ReplicationController:
-		return labels.SelectorFromSet(typed.Spec.Selector), nil
-	case *appsv1.ReplicaSet:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *appsv1.Deployment:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *appsv1.StatefulSet:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *appsv1.DaemonSet:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	case *batch.Job:
-		return metav1.LabelSelectorAsSelector(typed.Spec.Selector)
-	default:
-		return nil, fmt.Errorf("unsupported kind when getting selector: %v", obj)
-	}
-}
-
-// Note: This function assumes each controller has field Spec.Selector.
-// Moreover, Spec.Selector should be *metav1.LabelSelector, except for RelicationController.
-func getSelectorFromUnstrutured(obj *unstructured.Unstructured) (labels.Selector, error) {
-	spec, err := getSpecFromUnstrutured(obj)
-	if err != nil {
-		return nil, err
-	}
-	switch obj.GetKind() {
-	case "ReplicationController":
-		selectorMap, found, err := unstructured.NestedStringMap(spec, "selector")
-		if err != nil {
-			return nil, fmt.Errorf("try to selector failed, %v", err)
-		}
-		if !found {
-			return nil, fmt.Errorf("try to selector failed, field selector not found")
-		}
-		return labels.SelectorFromSet(selectorMap), nil
-	default:
-		selectorMap, found, err := unstructured.NestedMap(spec, "selector")
-		if err != nil {
-			return nil, fmt.Errorf("try to selector failed, %v", err)
-		}
-		if !found {
-			return nil, fmt.Errorf("try to selector failed, field selector not found")
-		}
-		var selector metav1.LabelSelector
-		err = runtime.DefaultUnstructuredConverter.FromUnstructured(selectorMap, &selector)
-		if err != nil {
-			return nil, fmt.Errorf("try to selector failed, %v", err)
-		}
-		return metav1.LabelSelectorAsSelector(&selector)
-	}
 }
 
 // GetIsPodUpdatedPredicateFromRuntimeObject returns a func(*corev1.Pod) bool predicate
@@ -365,19 +281,6 @@ func IsEqualRuntimeObjectsSpec(runtimeObj1, runtimeObj2 runtime.Object) (bool, e
 	}
 
 	return equality.Semantic.DeepEqual(runtimeObj1Spec, runtimeObj2Spec), nil
-}
-
-// CreateMetaNamespaceKey returns meta key (namespace/name) for given runtime object.
-func CreateMetaNamespaceKey(obj runtime.Object) (string, error) {
-	namespace, err := GetNamespaceFromRuntimeObject(obj)
-	if err != nil {
-		return "", fmt.Errorf("retrieving namespace error: %v", err)
-	}
-	name, err := GetNameFromRuntimeObject(obj)
-	if err != nil {
-		return "", fmt.Errorf("retrieving name error: %v", err)
-	}
-	return namespace + "/" + name, nil
 }
 
 // GetNumObjectsMatchingSelector returns number of objects matching the given selector.

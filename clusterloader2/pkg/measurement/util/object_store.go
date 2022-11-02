@@ -27,13 +27,15 @@ import (
 	"reflect"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 // ObjectStore is a convenient wrapper around cache.Store.
@@ -44,7 +46,7 @@ type ObjectStore struct {
 }
 
 // newObjectStore creates ObjectStore based on given object selector.
-func newObjectStore(obj runtime.Object, lw *cache.ListWatch, selector *ObjectSelector) (*ObjectStore, error) {
+func newObjectStore(obj runtime.Object, lw *cache.ListWatch, selector *util.ObjectSelector) (*ObjectStore, error) {
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	stopCh := make(chan struct{})
 	name := fmt.Sprintf("%sStore: %s", reflect.TypeOf(obj).String(), selector.String())
@@ -74,10 +76,11 @@ func (s *ObjectStore) Stop() {
 // PodStore is a convenient wrapper around cache.Store.
 type PodStore struct {
 	*ObjectStore
+	selector *util.ObjectSelector
 }
 
 // NewPodStore creates PodStore based on given object selector.
-func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, error) {
+func NewPodStore(c clientset.Interface, selector *util.ObjectSelector) (*PodStore, error) {
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
@@ -94,17 +97,59 @@ func NewPodStore(c clientset.Interface, selector *ObjectSelector) (*PodStore, er
 	if err != nil {
 		return nil, err
 	}
-	return &PodStore{ObjectStore: objectStore}, nil
+	return &PodStore{ObjectStore: objectStore, selector: selector}, nil
 }
 
 // List returns list of pods (that satisfy conditions provided to NewPodStore).
-func (s *PodStore) List() []*v1.Pod {
+func (s *PodStore) List() ([]*v1.Pod, error) {
 	objects := s.Store.List()
 	pods := make([]*v1.Pod, 0, len(objects))
 	for _, o := range objects {
 		pods = append(pods, o.(*v1.Pod))
 	}
-	return pods
+	return pods, nil
+}
+
+// String returns human readable identifier of pods kept in the store.
+func (s *PodStore) String() string {
+	return s.selector.String()
+}
+
+type controlledPodsIndexer interface {
+	PodsControlledBy(obj interface{}) ([]*v1.Pod, error)
+}
+
+// OwnerReferenceBasedPodStore returns pods with ownerReference set to the owner
+// (with exception for Deployment, see ControlledPodsIndexer implementation) and matching given labelSelector.
+type OwnerReferenceBasedPodStore struct {
+	controlledPodsIndexer controlledPodsIndexer
+	owner                 interface{}
+	cachedString          string
+}
+
+func NewOwnerReferenceBasedPodStore(controlledPodsIndexer controlledPodsIndexer, owner interface{}) (*OwnerReferenceBasedPodStore, error) {
+	metaAccessor, err := meta.Accessor(owner)
+	if err != nil {
+		return nil, fmt.Errorf("object has no meta: %w", err)
+	}
+
+	return &OwnerReferenceBasedPodStore{
+		controlledPodsIndexer: controlledPodsIndexer,
+		owner:                 owner,
+		cachedString:          fmt.Sprintf("namespace(%s), controlledBy(%s)", metaAccessor.GetNamespace(), metaAccessor.GetName()),
+	}, nil
+}
+
+// List returns controlled pods.
+func (s *OwnerReferenceBasedPodStore) List() ([]*v1.Pod, error) {
+	// Technically to be 100% correct we should check here label selectors here as this is how API of pod controllers is defined.
+	// In practice, comparing ownerReference only should be eventually consistent with label selectors, so it should be enough.
+	return s.controlledPodsIndexer.PodsControlledBy(s.owner)
+}
+
+// String returns human readable identifier of pods kept in the store.
+func (s *OwnerReferenceBasedPodStore) String() string {
+	return s.cachedString
 }
 
 // PVCStore is a convenient wrapper around cache.Store.
@@ -113,7 +158,7 @@ type PVCStore struct {
 }
 
 // NewPVCStore creates PVCStore based on a given object selector.
-func NewPVCStore(c clientset.Interface, selector *ObjectSelector) (*PVCStore, error) {
+func NewPVCStore(c clientset.Interface, selector *util.ObjectSelector) (*PVCStore, error) {
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
@@ -150,7 +195,7 @@ type PVStore struct {
 }
 
 // NewPVStore creates PVStore based on a given object selector.
-func NewPVStore(c clientset.Interface, selector *ObjectSelector, provisioner string) (*PVStore, error) {
+func NewPVStore(c clientset.Interface, selector *util.ObjectSelector, provisioner string) (*PVStore, error) {
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
@@ -190,7 +235,7 @@ type NodeStore struct {
 }
 
 // NewNodeStore creates NodeStore based on a given object selector.
-func NewNodeStore(c clientset.Interface, selector *ObjectSelector) (*NodeStore, error) {
+func NewNodeStore(c clientset.Interface, selector *util.ObjectSelector) (*NodeStore, error) {
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = selector.LabelSelector
