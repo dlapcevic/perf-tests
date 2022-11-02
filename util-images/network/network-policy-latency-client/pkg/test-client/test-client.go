@@ -152,6 +152,8 @@ func (c *TestClient) Run() {
 		c.startMeasureNetPolicyCreation()
 	}
 	// Prevents from pod restarting, after everything is finished.
+	// The test will run only once, when the application is deployed.
+	// Restart the application to rerun the test.
 	c.enterIdleState()
 }
 
@@ -250,6 +252,9 @@ func (c *TestClient) createPodWatcher() error {
 			return
 		}
 
+		// Why did I just put name as key?
+		// I can put the entire pod object as key and use that instead of later
+		// getting it by name from cache.
 		c.workQueue.Add(pod.GetName())
 	}
 
@@ -410,7 +415,7 @@ func (c *TestClient) reportReachedTimeForPolicyCreation(pod *corev1.Pod, reached
 		// Get network policy.
 		netPolicyList, err := c.k8sClient.NetworkingV1().NetworkPolicies(c.Config.testClientNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector, Limit: 1})
 		if err != nil {
-			log.Printf("Failed to list network policies for pod %q in namespace %q: %v", pod.GetName(), pod.GetNamespace(), err)
+			log.Printf("Failed to list network policies for pod %q in namespace %q: %v", pod.GetName(), c.Config.testClientNamespace, err)
 			failed = true
 		}
 

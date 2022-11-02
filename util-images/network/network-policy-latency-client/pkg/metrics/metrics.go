@@ -39,7 +39,7 @@ var (
 			Buckets: latencyBuckets,
 		},
 	)
-	// Time taken is measured by watching for pod updates.
+	// PodIpAddressAssignedLatency is measured by watching for pod updates.
 	// Pod's creationTimestamp (Start time).
 	// The first pod update that has IP assigned (End time).
 	// Reported time = End time - Start time.
