@@ -18,6 +18,7 @@ package execservice
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"math/rand"
 	"os/exec"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/framework/client"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
+	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
 
 const (
@@ -92,27 +94,24 @@ func SetUpExecService(f *framework.Framework, c config.ExecServiceConfig) error 
 		return fmt.Errorf("pod %s creation error: %v", execDeploymentName, err)
 	}
 
-	stopCh := make(chan struct{})
-	time.AfterFunc(execPodCheckTimeout, func() {
-		close(stopCh)
-	})
-	selector := &measurementutil.ObjectSelector{
+	ctx, cancel := context.WithTimeout(context.TODO(), execPodCheckTimeout)
+	defer cancel()
+	selector := &util.ObjectSelector{
 		Namespace:     execDeploymentNamespace,
 		LabelSelector: execPodSelector,
 		FieldSelector: "",
 	}
 	options := &measurementutil.WaitForPodOptions{
-		Selector:            selector,
 		DesiredPodCount:     func() int { return execPodReplicas },
 		CallerName:          execServiceName,
 		WaitForPodsInterval: execPodCheckInterval,
 	}
-	if err = measurementutil.WaitForPods(f.GetClientSets().GetClient(), stopCh, options); err != nil {
-		return err
-	}
 	podStore, err = measurementutil.NewPodStore(f.GetClientSets().GetClient(), selector)
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)
+	}
+	if err = measurementutil.WaitForPods(ctx, podStore, options); err != nil {
+		return err
 	}
 	klog.V(2).Infof("%v: service set up successfully!", execServiceName)
 	return nil
@@ -154,7 +153,10 @@ func GetPod() (*corev1.Pod, error) {
 	if podStore == nil {
 		return nil, fmt.Errorf("exec service not started")
 	}
-	pods := podStore.List()
+	pods, err := podStore.List()
+	if err != nil {
+		return nil, fmt.Errorf("pod listing failed: %w", err)
+	}
 	if len(pods) == 0 {
 		return nil, fmt.Errorf("no exec pods found")
 	}

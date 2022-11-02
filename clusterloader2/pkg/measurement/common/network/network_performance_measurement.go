@@ -226,17 +226,19 @@ func (npm *networkPerformanceMeasurement) createAndWaitForWorkerPods() error {
 		return fmt.Errorf("failed to create worked pods: %v ", err)
 	}
 	// Wait for all worker pods to be ready
-	stopCh := make(chan struct{})
-	time.AfterFunc(podReadyTimeout, func() {
-		close(stopCh)
-	})
+	ctx, cancel := context.WithTimeout(context.TODO(), podReadyTimeout)
+	defer cancel()
+	selector := &util.ObjectSelector{Namespace: netperfNamespace}
 	options := &measurementutil.WaitForPodOptions{
-		Selector:            &measurementutil.ObjectSelector{Namespace: netperfNamespace},
 		DesiredPodCount:     func() int { return npm.numberOfClients + npm.numberOfServers },
 		CallerName:          networkPerformanceMetricsName,
 		WaitForPodsInterval: 2 * time.Second,
 	}
-	return measurementutil.WaitForPods(npm.k8sClient, stopCh, options)
+	podStore, err := measurementutil.NewPodStore(npm.k8sClient, selector)
+	if err != nil {
+		return err
+	}
+	return measurementutil.WaitForPods(ctx, podStore, options)
 }
 
 func (*networkPerformanceMeasurement) String() string {

@@ -35,9 +35,7 @@ import (
 
 	"k8s.io/perf-tests/clusterloader2/pkg/framework"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
-	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/informer"
-	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/runtimeobjects"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement/util/workerqueue"
 	"k8s.io/perf-tests/clusterloader2/pkg/util"
 )
@@ -57,14 +55,14 @@ func init() {
 
 func createWaitForFinishedJobsMeasurement() measurement.Measurement {
 	return &waitForFinishedJobsMeasurement{
-		selector:     measurementutil.NewObjectSelector(),
+		selector:     util.NewObjectSelector(),
 		queue:        workerqueue.NewWorkerQueue(waitForFinishedJobsWorkers),
 		finishedJobs: make(map[string]batchv1.JobConditionType),
 	}
 }
 
 type waitForFinishedJobsMeasurement struct {
-	selector *measurementutil.ObjectSelector
+	selector *util.ObjectSelector
 
 	queue            workerqueue.Interface
 	isRunning        bool
@@ -214,7 +212,7 @@ func (w *waitForFinishedJobsMeasurement) handleObject(oldObj, newObj interface{}
 	if newJob == nil {
 		handleJob = oldJob
 	}
-	key, err := runtimeobjects.CreateMetaNamespaceKey(handleJob)
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(handleJob)
 	if err != nil {
 		klog.Errorf("Failed obtaining meta key for Job: %v", err)
 		return
@@ -241,7 +239,7 @@ func (w *waitForFinishedJobsMeasurement) jobKeys() (sets.String, error) {
 	}
 	keys := sets.NewString()
 	for _, j := range objs.Items {
-		key, err := runtimeobjects.CreateMetaNamespaceKey(&j)
+		key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(&j)
 		if err != nil {
 			return nil, fmt.Errorf("getting key for Job: %w", err)
 		}
