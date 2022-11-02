@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 import (
+	"context"
 	"time"
 
 	"k8s.io/klog"
@@ -51,7 +52,7 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 	if err != nil {
 		return nil, err
 	}
-	selector := measurementutil.NewObjectSelector()
+	selector := util.NewObjectSelector()
 	if err := selector.Parse(config.Params); err != nil {
 		return nil, err
 	}
@@ -60,17 +61,18 @@ func (w *waitForRunningPodsMeasurement) Execute(config *measurement.Config) ([]m
 		return nil, err
 	}
 
-	stopCh := make(chan struct{})
-	time.AfterFunc(timeout, func() {
-		close(stopCh)
-	})
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel()
 	options := &measurementutil.WaitForPodOptions{
-		Selector:            selector,
 		DesiredPodCount:     func() int { return desiredPodCount },
 		CallerName:          w.String(),
 		WaitForPodsInterval: defaultWaitForPodsInterval,
 	}
-	return nil, measurementutil.WaitForPods(config.ClusterFramework.GetClientSets().GetClient(), stopCh, options)
+	podStore, err := measurementutil.NewPodStore(config.ClusterFramework.GetClientSets().GetClient(), selector)
+	if err != nil {
+		return nil, err
+	}
+	return nil, measurementutil.WaitForPods(ctx, podStore, options)
 }
 
 // Dispose cleans up after the measurement.

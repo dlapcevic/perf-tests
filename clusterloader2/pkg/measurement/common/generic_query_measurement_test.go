@@ -66,22 +66,57 @@ func TestGather(t *testing.T) {
 						"name":  "no-threshold",
 						"query": "no-threshold-query[%v]",
 					},
-				},
-			},
-			samples: map[string][]*model.Sample{
-				"below-threshold-query[1m]": {{Value: model.SampleValue(7)}},
-				"no-threshold-query[1m]":    {{Value: model.SampleValue(120)}},
-			},
-			wantDataItems: []measurementutil.DataItem{
-				{
-					Labels: map[string]string{"MetricName": "happy-path"},
-					Unit:   "ms",
-					Data: map[string]float64{
-						"below-threshold": 7.0,
-						"no-threshold":    120.0,
+					{
+						"name":  "multiple-duration-placeholders",
+						"query": "placeholder-a[%v] + placeholder-b[%v]",
 					},
 				},
 			},
+			samples: map[string][]*model.Sample{
+				"below-threshold-query[1m]":             {{Value: model.SampleValue(7)}},
+				"no-threshold-query[1m]":                {{Value: model.SampleValue(120)}},
+				"placeholder-a[1m] + placeholder-b[1m]": {{Value: model.SampleValue(5)}},
+			},
+			wantDataItems: []measurementutil.DataItem{
+				{
+					Unit: "ms",
+					Data: map[string]float64{
+						"below-threshold":                7.0,
+						"no-threshold":                   120.0,
+						"multiple-duration-placeholders": 5.0,
+					},
+				},
+			},
+		},
+		{
+			desc: "no samples, but samples not required",
+			params: map[string]interface{}{
+				"metricName":    "no-samples",
+				"metricVersion": "v1",
+				"unit":          "ms",
+				"queries": []map[string]interface{}{
+					{
+						"name":  "no-samples",
+						"query": "no-samples-query[%v]",
+					},
+				},
+			},
+		},
+		{
+			desc: "no samples, but samples required",
+			params: map[string]interface{}{
+				"metricName":    "no-samples",
+				"metricVersion": "v1",
+				"unit":          "ms",
+				"queries": []map[string]interface{}{
+					{
+						"name":           "no-samples",
+						"query":          "no-samples-query[%v]",
+						"requireSamples": true,
+					},
+				},
+			},
+			wantErr: "no samples",
 		},
 		{
 			desc: "too many samples",
@@ -106,8 +141,7 @@ func TestGather(t *testing.T) {
 			// When too many samples, first value is returned and error is raised.
 			wantDataItems: []measurementutil.DataItem{
 				{
-					Labels: map[string]string{"MetricName": "many-samples"},
-					Unit:   "ms",
+					Unit: "ms",
 					Data: map[string]float64{
 						"many-samples": 1.0,
 					},
@@ -134,8 +168,7 @@ func TestGather(t *testing.T) {
 			wantErr: "sample above threshold: want: less or equal than 60, got: 123",
 			wantDataItems: []measurementutil.DataItem{
 				{
-					Labels: map[string]string{"MetricName": "above-threshold"},
-					Unit:   "ms",
+					Unit: "ms",
 					Data: map[string]float64{
 						"above-threshold": 123.0,
 					},
@@ -232,9 +265,8 @@ func TestGather(t *testing.T) {
 			wantDataItems: []measurementutil.DataItem{
 				{
 					Labels: map[string]string{
-						"MetricName": "dimensions",
-						"d1":         "d1-val1",
-						"d2":         "d2-val1",
+						"d1": "d1-val1",
+						"d2": "d2-val1",
 					},
 					Unit: "ms",
 					Data: map[string]float64{
@@ -244,9 +276,8 @@ func TestGather(t *testing.T) {
 				},
 				{
 					Labels: map[string]string{
-						"MetricName": "dimensions",
-						"d1":         "d1-val1",
-						"d2":         "d2-val2",
+						"d1": "d1-val1",
+						"d2": "d2-val2",
 					},
 					Unit: "ms",
 					Data: map[string]float64{
@@ -256,9 +287,8 @@ func TestGather(t *testing.T) {
 				},
 				{
 					Labels: map[string]string{
-						"MetricName": "dimensions",
-						"d1":         "d1-val1",
-						"d2":         "",
+						"d1": "d1-val1",
+						"d2": "",
 					},
 					Unit: "ms",
 					Data: map[string]float64{
@@ -307,9 +337,8 @@ func TestGather(t *testing.T) {
 			wantDataItems: []measurementutil.DataItem{
 				{
 					Labels: map[string]string{
-						"MetricName": "dimensions",
-						"d1":         "d1-val1",
-						"d2":         "d2-val1",
+						"d1": "d1-val1",
+						"d2": "d2-val1",
 					},
 					Unit: "ms",
 					Data: map[string]float64{

@@ -67,7 +67,7 @@ func (s *schedulingThroughputMeasurement) Execute(config *measurement.Config) ([
 			klog.V(3).Infof("%s: measurement already running", s)
 			return nil, nil
 		}
-		selector := measurementutil.NewObjectSelector()
+		selector := util.NewObjectSelector()
 		if err := selector.Parse(config.Params); err != nil {
 			return nil, err
 		}
@@ -112,7 +112,7 @@ func (*schedulingThroughputMeasurement) String() string {
 	return schedulingThroughputMeasurementName
 }
 
-func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, selector *measurementutil.ObjectSelector, measurmentInterval time.Duration) error {
+func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, selector *util.ObjectSelector, measurmentInterval time.Duration) error {
 	ps, err := measurementutil.NewPodStore(clientSet, selector)
 	if err != nil {
 		return fmt.Errorf("pod store creation error: %v", err)
@@ -128,7 +128,12 @@ func (s *schedulingThroughputMeasurement) start(clientSet clientset.Interface, s
 			case <-s.stopCh:
 				return
 			case <-time.After(measurmentInterval):
-				pods := ps.List()
+				pods, err := ps.List()
+				if err != nil {
+					// List in NewPodStore never returns error.
+					// TODO(mborsz): Even if this is a case now, it doesn't need to be true in future. Refactor this.
+					panic(fmt.Errorf("unexpected error on PodStore.List: %w", err))
+				}
 				podsStatus := measurementutil.ComputePodsStartupStatus(pods, 0, nil /* updatePodPredicate */)
 				throughput := float64(podsStatus.Scheduled-lastScheduledCount) / float64(measurmentInterval/time.Second)
 				s.schedulingThroughputs = append(s.schedulingThroughputs, throughput)
