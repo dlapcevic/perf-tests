@@ -292,6 +292,9 @@ func (c *TestClient) processNextPodCreationEvent() {
 	}
 	defer c.workQueue.Done(item)
 
+	// Is it correct to set start time here?
+	// Maybe it should be part of the item, which will be the time when it is
+	// added to the queue.
 	startTime := time.Now()
 
 	key, ok := item.(string)
