@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  namespace: {{.Namespace}}
+  labels:
+    test: {{.TestClientLabel}}
+    type: {{.TypeLabelValue}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: {{.Name}}
+  template:
+    metadata:
+      labels:
+        name: {{.Name}}
+        test: {{.TestClientLabel}}
+        type: {{.TypeLabelValue}}
+    spec:
+#    {{if .TestPodCreation}}
+      nodeSelector:
+        test: net-policy-client
+      tolerations:
+      - key: test
+        operator: Equal
+        value: net-policy-client
+        effect: NoSchedule
+#    {{end}}
+      containers:
+      - name: net-policy-latency-client
+        ports:
+        - containerPort: {{.MetricsPort}}
+          # hostPort: {{.MetricsPort}}
+          name: npdelaymetrics
+          protocol: TCP
+        imagePullPolicy: Always
+        image: gcr.io/gke-networking-test-images/scale-tests/connectivity-client:v0.0.1
+#        image: gcr.io/gke-networking-test-images/scale-tests/network-policy-latency-client:v0.0.4
+        # args:
+        #   - -targetLabelSelector "group = net-policy-latency"
+        command:
+        - sh
+        - -c
+        - ./connectivity-client
+          -testClientNamespace="{{.Namespace}}"
+          -targetLabelSelector="{{.TargetLabelSelector}}"
+          -targetNamespace="{{.TargetNamespace}}"
+          -targetPort={{.TargetPort}}
+          -expectedTargets={{.ExpectedTargets}}
+          -allowPolicyName={{.AllowPolicyName}}
+          -metricsPort={{.MetricsPort}}
+          -testPodCreation={{.TestPodCreation}}
+        resources:
+#        {{if .TestPodCreation}}
+          requests:
+            cpu: 500m
+            memory: 400Mi
+#        {{end}}
+#          limits:
+#            cpu: 900m
+#            memory: 800Mi
+          # requests:
+          #   cpu: 50m
+          #   memory: 20Mi
+        # ports:
+        # - containerPort: 80
+      serviceAccountName: {{.ServiceAccountName}}

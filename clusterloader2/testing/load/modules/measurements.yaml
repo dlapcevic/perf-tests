@@ -19,6 +19,8 @@
 {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS false}}
 {{$ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE := DefaultParam .CL2_ENABLE_VIOLATIONS_FOR_API_CALL_PROMETHEUS_SIMPLE true}}
 {{$ENABLE_CEP_PROPAGATION_DELAY_MEASUREMENT := DefaultParam .CL2_ENABLE_CEP_PROPAGATION_DELAY_MEASUREMENT false}}
+{{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST := DefaultParam .CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST false}}
+{{$NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE := DefaultParam .CL2_NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE false}}
 {{$CEP_PROPAGATION_DELAY_SLO_BUCKET := DefaultParam .CL2_CEP_PROPAGATION_DELAY_SLO_BUCKET 600}}
 {{$CEP_PROPAGATION_DELAY_SLO_PERCENTILE := DefaultParam .CL2_CEP_PROPAGATION_DELAY_SLO_PERCENTILE 95.0}}
 {{$ENABLE_CONTAINER_RESTARTS_MEASUREMENT := DefaultParam .CL2_ENABLE_CONTAINER_RESTARTS_MEASUREMENT false}}
@@ -193,6 +195,47 @@ steps:
       clusterOOMsTrackerEnabled: {{$ENABLE_CLUSTER_OOMS_TRACKER}}
       restartCountThresholdOverrides: {{YamlQuote $RESTART_COUNT_THRESHOLD_OVERRIDES 4}}
       enableRestartCountCheck: {{$ENABLE_RESTART_COUNT_CHECK}}
+{{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
+  - Identifier: GetNetPolicyLatencyMetrics
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: Network Policy Enforcement Latency
+      metricVersion: v1
+      unit: s
+      queries:
+      {{if not $NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE}}
+        - name: PolicyCreation - TargetCount
+          query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v:]
+        - name: PolicyCreation - Perc50
+          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+        - name: PolicyCreation - Perc90
+          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+        - name: PolicyCreation - Perc99
+          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+      {{end}}
+        - name: PodCreation - TargetCount
+          query: sum(policy_enforcement_latency_pod_creation_seconds_count)#[%v:]
+        - name: PodCreation - Perc50
+          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+        - name: PodCreation - Perc90
+          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+        - name: PodCreation - Perc99
+          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+        - name: PodIpAssignedLatency - TargetCount
+          query: sum(pod_ip_address_assigned_latency_seconds_count)#[%v:]
+        - name: PodIpAssignedLatency - Perc50
+          query: histogram_quantile(0.50, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+        - name: PodIpAssignedLatency - Perc90
+          query: histogram_quantile(0.90, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+        - name: PodIpAssignedLatency - Perc99
+          query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+        # Service reachability metrics.
+        - name: ServiceTargetCount
+          query: sum(target_service_count)
+        - name: ServiceTargetReachedCount
+          query: sum(target_service_reached_count)
+{{end}}
 - module:
     path: modules/dns-performance-metrics.yaml
     params:

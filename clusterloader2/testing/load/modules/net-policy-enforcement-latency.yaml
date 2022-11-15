@@ -1,0 +1,37 @@
+{{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST := DefaultParam .CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST false}}
+{{$NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE := DefaultParam .CL2_NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE false}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY "net-pol-test"}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE "enforcement-latency"}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGETS := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGETS 1000}}
+
+# Setup only needs to run once.
+{{$setup := DefaultParam .setup false}}
+{{$podCreation := DefaultParam .podCreation false}}
+{{$targetPort := 80}}
+
+{{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
+
+steps:
+{{if $setup}}
+- name: Setup network policy enforcement latency measurement
+  measurements:
+  - Identifier: NetworkPolicyEnforcement
+    Method: NetworkPolicyEnforcement
+    Params:
+      action: setup
+      targetLabelKey: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY}}
+      targetLabelValue: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE}}
+      baseline: {{$NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE}}
+{{end}}
+
+- name: Start pod creation network policy enforcement latency measurement
+  measurements:
+  - Identifier: NetworkPolicyEnforcement
+    Method: NetworkPolicyEnforcement
+    Params:
+      action: create
+      podCreation: {{$podCreation}}
+      targetPort: {{$targetPort}}
+      expectedTargets: {{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGETS}}
+      
+{{end}}

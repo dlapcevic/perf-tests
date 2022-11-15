@@ -120,6 +120,12 @@ steps:
       action: start
 
 - module:
+    path: modules/net-policy-enforcement-latency.yaml
+    params:
+      setup: true
+      podCreation: true
+
+- module:
     path: modules/services.yaml
     params:
       actionName: "Creating"
@@ -200,6 +206,11 @@ steps:
 
 - module:
     path: modules/dns-k8s-hostnames.yaml
+
+- module:
+    path: modules/net-policy-enforcement-latency.yaml
+    params:
+      podCreation: false
 
 {{if $EXEC_COMMAND}}
 
