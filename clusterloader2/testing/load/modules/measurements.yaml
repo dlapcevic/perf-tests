@@ -211,6 +211,8 @@ steps:
           query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
         - name: PolicyCreation - Perc90
           query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+        - name: PolicyCreation - Perc95
+          query: histogram_quantile(0.95, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
         - name: PolicyCreation - Perc99
           query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
       {{end}}
@@ -220,6 +222,8 @@ steps:
           query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
         - name: PodCreation - Perc90
           query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+        - name: PodCreation - Perc95
+          query: histogram_quantile(0.95, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
         - name: PodCreation - Perc99
           query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
         - name: PodIpAssignedLatency - TargetCount
@@ -228,6 +232,8 @@ steps:
           query: histogram_quantile(0.50, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
         - name: PodIpAssignedLatency - Perc90
           query: histogram_quantile(0.90, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+        - name: PodIpAssignedLatency - Perc95
+          query: histogram_quantile(0.95, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
         - name: PodIpAssignedLatency - Perc99
           query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
         # Service reachability metrics.
