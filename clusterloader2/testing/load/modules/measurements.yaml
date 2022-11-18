@@ -206,18 +206,34 @@ steps:
       queries:
       {{if not $NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE}}
         - name: PolicyCreation - TargetCount
-          query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v:]
+          query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v]
+        - name: PolicyCreation - Bucket 5s
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="5"})#[%v]
+        - name: PolicyCreation - Bucket 10s
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="10"})#[%v]
+        - name: PolicyCreation - Bucket 60s
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="60"})#[%v]
         - name: PolicyCreation - Perc50
-          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.5, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))#[%v]
         - name: PolicyCreation - Perc90
-          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.9, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))#[%v]
         - name: PolicyCreation - Perc95
-          query: histogram_quantile(0.95, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.95, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))#[%v]
         - name: PolicyCreation - Perc99
-          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_policy_creation_seconds_bucket[%v])) by (le))
+          query: histogram_quantile(0.99, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))#[%v]
       {{end}}
         - name: PodCreation - TargetCount
           query: sum(policy_enforcement_latency_pod_creation_seconds_count)#[%v:]
+        - name: PodCreation - Bucket 1s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="1"})#[%v]
+        - name: PodCreation - Bucket 5s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="5"})#[%v]
+        - name: PodCreation - Bucket 10s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="10"})#[%v]
+        - name: PodCreation - Bucket 60s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="60"})#[%v]
+        - name: PodCreation - Bucket 600s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="600"})#[%v]
         - name: PodCreation - Perc50
           query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
         - name: PodCreation - Perc90
