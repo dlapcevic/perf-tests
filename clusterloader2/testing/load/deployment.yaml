@@ -64,8 +64,10 @@ spec:
         name: {{.Name}}-dnsperf
 {{else}}
   {{if .EnableNetworkPolicyEnforcementLatencyTest}}
-      - image: nginx
-        name: nginx-server
+#      - image: nginx
+#        name: nginx-server
+      - image: us-docker.pkg.dev/google-samples/containers/gke/hello-app:1.0
+        name: hello-app-server
         ports:
         - containerPort: 80
   {{else}}
