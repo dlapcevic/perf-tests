@@ -18,4 +18,10 @@ spec:
     - podSelector:
         matchLabels:
           {{.TargetLabelKey}}: {{.TargetLabelValue}}
+{{if .OnlyTargetNamespace}}
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{.TargetNamespace}}
+{{else}}
       namespaceSelector: {}
+{{end}}

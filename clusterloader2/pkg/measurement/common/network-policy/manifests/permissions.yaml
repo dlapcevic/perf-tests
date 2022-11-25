@@ -10,14 +10,11 @@ metadata:
   name: {{.Name}}
 rules:
 - apiGroups: [""]
-  resources: ["pods", "events"]
+  resources: ["pods", "services"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["networking.k8s.io"]
   resources: ["networkpolicies"]
   verbs: ["create", "get", "list", "watch"]
-- apiGroups: ["cilium.io"]
-  resources: ["ciliumendpointslices"]
-  verbs: ["get", "list", "watch"]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
