@@ -69,6 +69,11 @@ const (
 	clientDeploymentFilePath       = manifestPathPrefix + "/" + "dep-test-client.yaml"
 	policyEgressApiserverFilePath  = manifestPathPrefix + "/" + "policy-egress-allow-apiserver.yaml"
 	policyEgressTargetPodsFilePath = manifestPathPrefix + "/" + "policy-egress-allow-target-pods.yaml"
+	policyLoadFilePath             = manifestPathPrefix + "/" + "policy-load.yaml"
+
+	defaultPolicyLoadBaseName     = "small-deployment"
+	defaultPolicyLoadPerNamespace = 200
+	defaultPolicyLoadQPS          = 10
 )
 
 func init() {
@@ -264,7 +269,7 @@ func (nps *networkPolicyEnforcementMeasurement) create(config *measurement.Confi
 		return nps.startPodCreationTest(templateMap)
 	}
 
-	return nps.startPolicyCreationTest(templateMap)
+	return nps.startPolicyCreationTest(templateMap, config)
 }
 
 func (nps *networkPolicyEnforcementMeasurement) startPodCreationTest(depTemplateMap map[string]interface{}) error {
@@ -272,7 +277,7 @@ func (nps *networkPolicyEnforcementMeasurement) startPodCreationTest(depTemplate
 	return nps.createTestClientDeployments(depTemplateMap, podCreationTest)
 }
 
-func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTemplateMap map[string]interface{}) error {
+func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTemplateMap map[string]interface{}, config *measurement.Config) error {
 	klog.Infof("Starting policy creation network policy enforcement latency measurement")
 
 	if nps.baseline {
@@ -309,6 +314,8 @@ func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTempl
 	// Create a policy that allows egress from policy creation test client pods to
 	// target pods.
 	//return nps.createPolicyToTargetPods(policyCreationTest, false, true)
+
+	go nps.createLoadPolicies(config)
 
 	nps.createAllowPoliciesForPolicyCreationLatency()
 
@@ -415,6 +422,50 @@ func (nps *networkPolicyEnforcementMeasurement) createTestClientDeployments(temp
 	}
 
 	return nil
+}
+
+func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measurement.Config) {
+	policyLoadBaseName, err := util.GetStringOrDefault(config.Params, "policyLoadBaseName", defaultPolicyLoadBaseName)
+	if err != nil {
+		klog.Errorf("Failed getting policyLoadBaseName value, error: %v", err)
+		return
+	}
+
+	policyLoadPerNamespace, err := util.GetIntOrDefault(config.Params, "policyLoadPerNamespace", defaultPolicyLoadPerNamespace)
+	if err != nil {
+		klog.Errorf("Failed getting policyLoadBaseName value, error: %v", err)
+		return
+	}
+
+	policyLoadQPS, err := util.GetIntOrDefault(config.Params, "policyLoadQPS", defaultPolicyLoadQPS)
+	if err != nil {
+		klog.Errorf("Failed getting policyLoadQPS value, error: %v", err)
+		return
+	}
+	qpsSleepDuration := (1 * time.Second) / time.Duration(policyLoadQPS)
+
+	for nsIdx, ns := range nps.targetNamespaces {
+		cidr := fmt.Sprintf("10.0.%d.0/24", nsIdx)
+
+		for depIdx := 0; depIdx < policyLoadPerNamespace; depIdx++ {
+			// This will be the same as "small-deployment-0".."small-deployment-50",
+			// that is used in the load test.
+			podLabelName := fmt.Sprintf("%s-%d", policyLoadBaseName, depIdx)
+			templateMap := map[string]interface{}{
+				"Name":         fmt.Sprintf("%s-%d", podLabelName, nsIdx),
+				"Namespace":    ns,
+				"PodLabelName": podLabelName,
+				"CIDR":         cidr,
+			}
+
+			go func() {
+				if err := nps.framework.ApplyTemplatedManifests(policyLoadFilePath, templateMap); err != nil {
+					klog.Errorf("error while creating load network policy for deployment %q: %v", podLabelName, err)
+				}
+			}()
+			time.Sleep(qpsSleepDuration)
+		}
+	}
 }
 
 func (nps *networkPolicyEnforcementMeasurement) createAllowPoliciesForPolicyCreationLatency() {

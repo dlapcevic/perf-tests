@@ -1,0 +1,19 @@
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: {{.Name}}
+    namespace: {{.Namespace}}
+  spec:
+    podSelector:
+      matchLabels:
+        name: {{.PodLabelName}}
+    policyTypes:
+    - Egress
+    egress:
+    - to:
+      - ipBlock:
+          cidr: {{.CIDR}}
+          #cidr: 10.0.0.0/24
+      ports:
+      - protocol: TCP
+        port: 8080
