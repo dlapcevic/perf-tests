@@ -72,7 +72,7 @@ const (
 	policyLoadFilePath             = manifestPathPrefix + "/" + "policy-load.yaml"
 
 	defaultPolicyLoadBaseName     = "small-deployment"
-	defaultPolicyLoadPerNamespace = 200
+	defaultPolicyLoadPerNamespace = 500
 	defaultPolicyLoadQPS          = 10
 )
 
@@ -442,25 +442,51 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 		klog.Errorf("Failed getting policyLoadQPS value, error: %v", err)
 		return
 	}
-	qpsSleepDuration := (1 * time.Second) / time.Duration(policyLoadQPS)
+	// Reduce both because 2 different policies are created in each iteration.
+	policiesPerNs := policyLoadPerNamespace / 2
+	qpsSleepDuration := (1 * time.Second) / time.Duration(policyLoadQPS/2)
 
 	for nsIdx, ns := range nps.targetNamespaces {
-		cidr := fmt.Sprintf("10.0.%d.0/24", nsIdx)
+		baseCIDR := fmt.Sprintf("10.0.%d.0/24", nsIdx)
 
-		for depIdx := 0; depIdx < policyLoadPerNamespace; depIdx++ {
+		for depIdx := 0; depIdx < policiesPerNs; depIdx++ {
 			// This will be the same as "small-deployment-0".."small-deployment-50",
 			// that is used in the load test.
-			podLabelName := fmt.Sprintf("%s-%d", policyLoadBaseName, depIdx)
-			templateMap := map[string]interface{}{
-				"Name":         fmt.Sprintf("%s-%d", podLabelName, nsIdx),
-				"Namespace":    ns,
-				"PodLabelName": podLabelName,
-				"CIDR":         cidr,
+			podSelectorLabelValue := fmt.Sprintf("policy-load-%s-%d", policyLoadBaseName, depIdx)
+			templateMapForTargetPods := map[string]interface{}{
+				"Name":                  fmt.Sprintf("%s-%d", podSelectorLabelValue, nsIdx),
+				"Namespace":             ns,
+				"PodSelectorLabelKey":   "name",
+				"PodSelectorLabelValue": podSelectorLabelValue,
+				"CIDR":                  baseCIDR,
 			}
 
 			go func() {
-				if err := nps.framework.ApplyTemplatedManifests(policyLoadFilePath, templateMap); err != nil {
-					klog.Errorf("error while creating load network policy for deployment %q: %v", podLabelName, err)
+				if err := nps.framework.ApplyTemplatedManifests(policyLoadFilePath, templateMapForTargetPods); err != nil {
+					klog.Errorf("error while creating load network policy for label selector 'name=%s': %v", podSelectorLabelValue, err)
+				}
+			}()
+
+			// More policies for test client pods.
+			second := depIdx
+			third := 0
+			fourth := nsIdx
+			if depIdx > 255 {
+				second = depIdx % 255
+				third++
+			}
+			cidr := fmt.Sprintf("10.%d.%d.%d/32", second, third, fourth)
+			templateMapForTestClientPods := map[string]interface{}{
+				"Name":                  fmt.Sprintf("policy-load-%d-%d", depIdx, nsIdx),
+				"Namespace":             nps.testClientNamespace,
+				"PodSelectorLabelKey":   "test",
+				"PodSelectorLabelValue": netPolicyTestClientName,
+				"CIDR":                  cidr,
+			}
+
+			go func() {
+				if err := nps.framework.ApplyTemplatedManifests(policyLoadFilePath, templateMapForTestClientPods); err != nil {
+					klog.Errorf("error while creating load network policy for label selector 'test=%s': %v", netPolicyTestClientName, err)
 				}
 			}()
 			time.Sleep(qpsSleepDuration)
