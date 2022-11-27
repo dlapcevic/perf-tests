@@ -71,9 +71,9 @@ const (
 	policyEgressTargetPodsFilePath = manifestPathPrefix + "/" + "policy-egress-allow-target-pods.yaml"
 	policyLoadFilePath             = manifestPathPrefix + "/" + "policy-load.yaml"
 
-	defaultPolicyLoadBaseName     = "small-deployment"
-	defaultPolicyLoadPerNamespace = 500
-	defaultPolicyLoadQPS          = 10
+	defaultPolicyLoadBaseName = "small-deployment"
+	defaultPolicyLoadCount    = 200
+	defaultPolicyLoadQPS      = 10
 )
 
 func init() {
@@ -431,7 +431,7 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 		return
 	}
 
-	policyLoadPerNamespace, err := util.GetIntOrDefault(config.Params, "policyLoadPerNamespace", defaultPolicyLoadPerNamespace)
+	policyLoadCount, err := util.GetIntOrDefault(config.Params, "policyLoadCount", defaultPolicyLoadCount)
 	if err != nil {
 		klog.Errorf("Failed getting policyLoadBaseName value, error: %v", err)
 		return
@@ -442,12 +442,13 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 		klog.Errorf("Failed getting policyLoadQPS value, error: %v", err)
 		return
 	}
-	// Reduce both because 2 different policies are created in each iteration.
-	policiesPerNs := policyLoadPerNamespace / 2
-	qpsSleepDuration := (1 * time.Second) / time.Duration(policyLoadQPS/2)
+	// Reduce qps and policies per namespace by a factor of 2, because 2 different
+	// policies are created in each iteration.
+	policiesPerNs := (policyLoadCount / len(nps.targetNamespaces)) / 2
+	qpsSleepDuration := (2 * time.Second) / time.Duration(policyLoadQPS)
 
 	for nsIdx, ns := range nps.targetNamespaces {
-		baseCIDR := fmt.Sprintf("10.0.%d.0/24", nsIdx)
+		baseCidr := fmt.Sprintf("10.0.%d.0/24", nsIdx)
 
 		for depIdx := 0; depIdx < policiesPerNs; depIdx++ {
 			// This will be the same as "small-deployment-0".."small-deployment-50",
@@ -458,7 +459,7 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 				"Namespace":             ns,
 				"PodSelectorLabelKey":   "name",
 				"PodSelectorLabelValue": podSelectorLabelValue,
-				"CIDR":                  baseCIDR,
+				"CIDR":                  baseCidr,
 			}
 
 			go func() {

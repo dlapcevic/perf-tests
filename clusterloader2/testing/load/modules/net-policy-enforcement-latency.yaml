@@ -3,6 +3,7 @@
 {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY "net-pol-test"}}
 {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE "enforcement-latency"}}
 {{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGETS := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGETS 100}}
+{{$NET_POLICY_ENFORCEMENT_LOAD_COUNT := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LOAD_COUNT 200}}
 
 # Setup only needs to run once.
 {{$setup := DefaultParam .setup false}}
@@ -33,5 +34,6 @@ steps:
       podCreation: {{$podCreation}}
       targetPort: {{$targetPort}}
       expectedTargets: {{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGETS}}
+      policyLoadCount: {{$NET_POLICY_ENFORCEMENT_LOAD_COUNT}}
       
 {{end}}
