@@ -207,11 +207,6 @@ steps:
 - module:
     path: modules/dns-k8s-hostnames.yaml
 
-- module:
-    path: modules/net-policy-enforcement-latency.yaml
-    params:
-      podCreation: false
-
 {{if $EXEC_COMMAND}}
 
 {{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
@@ -308,6 +303,17 @@ steps:
       mediumJobsPerNamespace: 1
       smallJobSize: {{$SMALL_GROUP_SIZE}}
       smallJobsPerNamespace: 1
+
+- module:
+    path: modules/net-policy-enforcement-latency.yaml
+    params:
+      podCreation: true
+      action: complete
+
+- module:
+    path: modules/net-policy-enforcement-latency.yaml
+    params:
+      podCreation: false
 
 - module:
     path: /modules/reconcile-objects.yaml

@@ -72,8 +72,9 @@ const (
 	policyLoadFilePath             = manifestPathPrefix + "/" + "policy-load.yaml"
 
 	defaultPolicyLoadBaseName = "small-deployment"
-	defaultPolicyLoadCount    = 200
+	defaultPolicyLoadCount    = 1000
 	defaultPolicyLoadQPS      = 10
+	defaultTestRunMinutes     = 5
 )
 
 func init() {
@@ -104,7 +105,7 @@ type networkPolicyEnforcementMeasurement struct {
 // Execute - Available actions:
 // 1. setup
 // 2. create
-// 3. gather
+// 3. complete
 func (nps *networkPolicyEnforcementMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
@@ -116,8 +117,8 @@ func (nps *networkPolicyEnforcementMeasurement) Execute(config *measurement.Conf
 		return nil, nps.setup(config)
 	case "create":
 		return nil, nps.create(config)
-	case "gather":
-		return nil, nps.gather()
+	case "complete":
+		return nil, nps.complete(config)
 	default:
 		return nil, fmt.Errorf("unknown action %v", action)
 	}
@@ -279,6 +280,10 @@ func (nps *networkPolicyEnforcementMeasurement) startPodCreationTest(depTemplate
 
 func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTemplateMap map[string]interface{}, config *measurement.Config) error {
 	klog.Infof("Starting policy creation network policy enforcement latency measurement")
+	testRunMinutes, err := util.GetIntOrDefault(config.Params, "testRunMinutes", defaultTestRunMinutes)
+	if err != nil {
+		return err
+	}
 
 	if nps.baseline {
 		klog.Infof("Baseline flag is specified, which is only used for pod creation test, and means that no network policies should be created. Skipping policy creation test")
@@ -318,6 +323,10 @@ func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTempl
 	go nps.createLoadPolicies(config)
 
 	nps.createAllowPoliciesForPolicyCreationLatency()
+
+	testRunDuration := time.Duration(testRunMinutes) * time.Minute
+	klog.Infof("Running network policy creation enforcement latency test for %v", testRunDuration)
+	time.Sleep(testRunDuration)
 
 	return nil
 }
@@ -506,8 +515,25 @@ func (nps *networkPolicyEnforcementMeasurement) createAllowPoliciesForPolicyCrea
 	}
 }
 
-func (nps *networkPolicyEnforcementMeasurement) gather() error {
-	return nps.cleanUp()
+// complete deletes test client deployments for the specified test mode.
+func (nps *networkPolicyEnforcementMeasurement) complete(config *measurement.Config) error {
+	podCreation, err := util.GetBoolOrDefault(config.Params, "podCreation", false)
+	if err != nil {
+		return err
+	}
+
+	typeLabelValue := policyCreationTest
+	if podCreation {
+		typeLabelValue = podCreationTest
+	}
+
+	listOpts := metav1.ListOptions{LabelSelector: fmt.Sprintf("type=%s", typeLabelValue)}
+	err = nps.k8sClient.AppsV1().Deployments(nps.testClientNamespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, listOpts)
+	if err != nil {
+		return fmt.Errorf("failed to complete %q test, error: %v", typeLabelValue, err)
+	}
+
+	return nil
 }
 
 func (nps *networkPolicyEnforcementMeasurement) deleteClusterRoleAndBinding() error {

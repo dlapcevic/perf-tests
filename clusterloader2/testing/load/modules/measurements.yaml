@@ -204,6 +204,7 @@ steps:
       metricVersion: v1
       unit: s
       queries:
+      # Network policy enforcement metrics gathered from the test clients.
       {{if not $NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE}}
         - name: PolicyCreation - TargetCount
           query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v]
@@ -252,11 +253,27 @@ steps:
           query: histogram_quantile(0.95, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
         - name: PodIpAssignedLatency - Perc99
           query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
-        # Service reachability metrics.
-        - name: ServiceTargetCount
-          query: sum(target_service_count)
-        - name: ServiceTargetReachedCount
-          query: sum(target_service_reached_count)
+        # Cilium agent metrics that are related to network policies.
+        - name: Number of policies currently loaded
+          query: avg(cilium_policy)
+        - name: Policy regeneration time - Perc50
+          query: histogram_quantile(0.50, sum(cilium_policy_regeneration_time_stats_seconds_bucket{scope="total"}) by (le))
+        - name: Policy regeneration time - Perc99
+          query: histogram_quantile(0.99, sum(cilium_policy_regeneration_time_stats_seconds_bucket{scope="total"}) by (le))
+        - name: Number of times a policy import has failed
+          query: sum(cilium_policy_import_errors_total)
+        - name: Number of endpoints labeled by policy enforcement status
+          query: sum(cilium_policy_endpoint_enforcement_status)
+        - name: Time between a policy change and it being fully deployed into the datapath - Perc50
+          query: histogram_quantile(0.50, sum(cilium_policy_implementation_delay_bucket) by (le))
+        - name: Time between a policy change and it being fully deployed into the datapath - Perc99
+          query: histogram_quantile(0.99, sum(cilium_policy_implementation_delay_bucket) by (le))
+        - name: Latency of policy update trigger - Perc50
+          query: histogram_quantile(0.50, sum(cilium_triggers_policy_update_call_duration_seconds_bucket{type="latency"}) by (le))
+        - name: Latency of policy update trigger - Perc99
+          query: histogram_quantile(0.99, sum(cilium_triggers_policy_update_call_duration_seconds_bucket{type="latency"}) by (le))
+        - name: Failed endpoint regenerations
+          query: sum(cilium_endpoint_regenerations_total{outcome="fail"})
 {{end}}
 - module:
     path: modules/dns-performance-metrics.yaml
