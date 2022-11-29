@@ -304,11 +304,11 @@ steps:
       smallJobSize: {{$SMALL_GROUP_SIZE}}
       smallJobsPerNamespace: 1
 
-- module:
-    path: modules/net-policy-enforcement-latency.yaml
-    params:
-      podCreation: true
-      action: complete
+#- module:
+#    path: modules/net-policy-enforcement-latency.yaml
+#    params:
+#      podCreation: true
+#      action: complete
 
 - module:
     path: modules/net-policy-enforcement-latency.yaml

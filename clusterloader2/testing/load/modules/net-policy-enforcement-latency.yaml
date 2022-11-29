@@ -4,6 +4,7 @@
 {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE "enforcement-latency"}}
 {{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGETS := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGETS 100}}
 {{$NET_POLICY_ENFORCEMENT_LOAD_COUNT := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LOAD_COUNT 1000}}
+{{$NET_POLICY_CREATION_RUN_MINUTES := DefaultParam .CL2_NET_POLICY_CREATION_RUN_MINUTES 5}}
 
 # Action can be "create" or "complete"
 {{$action := DefaultParam .action "create"}}
@@ -37,5 +38,6 @@ steps:
       targetPort: {{$targetPort}}
       expectedTargets: {{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGETS}}
       policyLoadCount: {{$NET_POLICY_ENFORCEMENT_LOAD_COUNT}}
+      testRunMinutes: {{$NET_POLICY_CREATION_RUN_MINUTES}}
       
 {{end}}
