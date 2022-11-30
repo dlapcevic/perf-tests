@@ -1,0 +1,106 @@
+{{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST := DefaultParam .CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST true}} # Set to default false after testing manually.
+
+# Valid actions: "start", "gather"
+{{$action := .action}}
+{{$podCreation := DefaultParam .podCreation true}}
+{{$policyCreation := DefaultParam .policyCreation true}}
+{{$networkPolicyMetrics := DefaultParam .networkPolicyMetrics true}}
+
+{{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
+
+steps:
+- name: "{{$action}}ing network policy metrics"
+  measurements:
+  - Identifier: NetworkPolicyEnforcementLatency
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: "Network Policy Enforcement Latency"
+      metricVersion: v1
+      unit: s
+      queries:
+      # Network policy enforcement metrics gathered from the test clients.
+      {{if $policyCreation}}
+        - name: PolicyCreation - TargetCount
+          query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v]
+        - name: PolicyCreation - Bucket 5s
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="5"})#[%v]
+        - name: PolicyCreation - Bucket 10s
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="10"})#[%v]
+        - name: PolicyCreation - Bucket 60s
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="60"})#[%v]
+        - name: PolicyCreation - Perc50
+          query: histogram_quantile(0.5, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))#[%v]
+        - name: PolicyCreation - Perc90
+          query: histogram_quantile(0.9, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))#[%v]
+        - name: PolicyCreation - Perc95
+          query: histogram_quantile(0.95, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))#[%v]
+        - name: PolicyCreation - Perc99
+          query: histogram_quantile(0.99, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))#[%v]
+      {{end}}
+      {{if $podCreation}}
+        - name: PodCreation - TargetCount
+          query: sum(policy_enforcement_latency_pod_creation_seconds_count)#[%v:]
+        - name: PodCreation - Bucket 1s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="1"})#[%v]
+        - name: PodCreation - Bucket 5s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="5"})#[%v]
+        - name: PodCreation - Bucket 10s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="10"})#[%v]
+        - name: PodCreation - Bucket 60s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="60"})#[%v]
+        - name: PodCreation - Bucket 600s
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="600"})#[%v]
+        - name: PodCreation - Perc50
+          query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+        - name: PodCreation - Perc90
+          query: histogram_quantile(0.9, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+        - name: PodCreation - Perc95
+          query: histogram_quantile(0.95, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+        - name: PodCreation - Perc99
+          query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
+        - name: PodIpAssignedLatency - TargetCount
+          query: sum(pod_ip_address_assigned_latency_seconds_count)#[%v:]
+        - name: PodIpAssignedLatency - Perc50
+          query: histogram_quantile(0.50, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+        - name: PodIpAssignedLatency - Perc90
+          query: histogram_quantile(0.90, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+        - name: PodIpAssignedLatency - Perc95
+          query: histogram_quantile(0.95, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+        - name: PodIpAssignedLatency - Perc99
+          query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
+      {{end}}
+
+  {{if $networkPolicyMetrics}}
+  - Identifier: NetworkPolicyMetrics
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: "Network Policy Performance"
+      metricVersion: v1
+      unit: s
+      queries:
+        # Cilium agent metrics that are related to network policies.
+        - name: Number of policies currently loaded
+          query: avg(cilium_policy)
+        - name: Policy regeneration time - Perc50
+          query: histogram_quantile(0.50, sum(cilium_policy_regeneration_time_stats_seconds_bucket{scope="total"}) by (le))
+        - name: Policy regeneration time - Perc99
+          query: histogram_quantile(0.99, sum(cilium_policy_regeneration_time_stats_seconds_bucket{scope="total"}) by (le))
+        - name: Number of times a policy import has failed
+          query: sum(cilium_policy_import_errors_total)
+        - name: Number of endpoints labeled by policy enforcement status
+          query: sum(cilium_policy_endpoint_enforcement_status)
+        - name: Time between a policy change and it being fully deployed into the datapath - Perc50
+          query: histogram_quantile(0.50, sum(cilium_policy_implementation_delay_bucket) by (le))
+        - name: Time between a policy change and it being fully deployed into the datapath - Perc99
+          query: histogram_quantile(0.99, sum(cilium_policy_implementation_delay_bucket) by (le))
+        - name: Latency of policy update trigger - Perc50
+          query: histogram_quantile(0.50, sum(cilium_triggers_policy_update_call_duration_seconds_bucket{type="latency"}) by (le))
+        - name: Latency of policy update trigger - Perc99
+          query: histogram_quantile(0.99, sum(cilium_triggers_policy_update_call_duration_seconds_bucket{type="latency"}) by (le))
+        - name: Failed endpoint regenerations
+          query: sum(cilium_endpoint_regenerations_total{outcome="fail"})
+  {{end}}
+
+{{end}}

@@ -6,17 +6,18 @@
 {{$NET_POLICY_ENFORCEMENT_LOAD_COUNT := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LOAD_COUNT 1000}}
 {{$NET_POLICY_CREATION_RUN_MINUTES := DefaultParam .CL2_NET_POLICY_CREATION_RUN_MINUTES 5}}
 
-# Action can be "create" or "complete"
-{{$action := DefaultParam .action "create"}}
-# Setup only needs to run once.
 {{$setup := DefaultParam .setup false}}
+{{$run := DefaultParam .run false}}
+{{$complete := DefaultParam .complete false}}
 {{$podCreation := DefaultParam .podCreation false}}
+# Target port needs to match the server container port of target pods that have
+# "targetLabelKey: targetLabelValue" label selector.
 {{$targetPort := 80}}
 
 {{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
 
 steps:
-{{if $setup}}
+  {{if $setup}}
 - name: Setup network policy enforcement latency measurement
   measurements:
   - Identifier: NetworkPolicyEnforcement
@@ -26,18 +27,30 @@ steps:
       targetLabelKey: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY}}
       targetLabelValue: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE}}
       baseline: {{$NETWORK_POLICY_ENFORCEMENT_LATENCY_BASELINE}}
-{{end}}
-
-- name: Start pod creation network policy enforcement latency measurement
+  {{end}}
+  
+  {{if $run}}
+- name: "Run pod creation network policy enforcement latency measurement (podCreation={{$podCreation}})"
   measurements:
   - Identifier: NetworkPolicyEnforcement
     Method: NetworkPolicyEnforcement
     Params:
-      action: {{$action}}
+      action: run
       podCreation: {{$podCreation}}
       targetPort: {{$targetPort}}
       expectedTargets: {{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGETS}}
       policyLoadCount: {{$NET_POLICY_ENFORCEMENT_LOAD_COUNT}}
       testRunMinutes: {{$NET_POLICY_CREATION_RUN_MINUTES}}
-      
+  {{end}}
+  
+  {{if $complete}}
+- name: "Complete pod creation network policy enforcement latency measurement (podCreation={{$podCreation}})"
+  measurements:
+  - Identifier: NetworkPolicyEnforcement
+    Method: NetworkPolicyEnforcement
+    Params:
+      action: complete
+      podCreation: {{$podCreation}}
+  {{end}}
+
 {{end}}

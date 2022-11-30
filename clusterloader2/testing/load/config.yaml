@@ -120,9 +120,10 @@ steps:
       action: start
 
 - module:
-    path: modules/net-policy-enforcement-latency.yaml
+    path: modules/network-policy/net-policy-enforcement-latency.yaml
     params:
       setup: true
+      run: true
       podCreation: true
 
 - module:
@@ -271,6 +272,24 @@ steps:
 {{end}}
 
 - module:
+    path: modules/network-policy/net-policy-metrics.yaml
+    params:
+      action: gather
+      name: "Halftime report"
+
+- module:
+    path: modules/network-policy/net-policy-enforcement-latency.yaml
+    params:
+      complete: true
+      podCreation: true
+
+- module:
+    path: modules/network-policy/net-policy-enforcement-latency.yaml
+    params:
+      run: true
+      podCreation: false
+
+- module:
     path: /modules/reconcile-objects.yaml
     params:
       actionName: "scale and update"
@@ -303,17 +322,6 @@ steps:
       mediumJobsPerNamespace: 1
       smallJobSize: {{$SMALL_GROUP_SIZE}}
       smallJobsPerNamespace: 1
-
-#- module:
-#    path: modules/net-policy-enforcement-latency.yaml
-#    params:
-#      podCreation: true
-#      action: complete
-
-- module:
-    path: modules/net-policy-enforcement-latency.yaml
-    params:
-      podCreation: false
 
 - module:
     path: /modules/reconcile-objects.yaml

@@ -104,7 +104,7 @@ type networkPolicyEnforcementMeasurement struct {
 
 // Execute - Available actions:
 // 1. setup
-// 2. create
+// 2. run
 // 3. complete
 func (nps *networkPolicyEnforcementMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
 	action, err := util.GetString(config.Params, "action")
@@ -115,8 +115,8 @@ func (nps *networkPolicyEnforcementMeasurement) Execute(config *measurement.Conf
 	switch action {
 	case "setup":
 		return nil, nps.setup(config)
-	case "create":
-		return nil, nps.create(config)
+	case "run":
+		return nil, nps.run(config)
 	case "complete":
 		return nil, nps.complete(config)
 	default:
@@ -225,7 +225,7 @@ func (nps *networkPolicyEnforcementMeasurement) createPermissionResources() erro
 	return nil
 }
 
-func (nps *networkPolicyEnforcementMeasurement) create(config *measurement.Config) error {
+func (nps *networkPolicyEnforcementMeasurement) run(config *measurement.Config) error {
 	// Should this be mandatory? Fail if not provided.
 	targetPort, err := util.GetIntOrDefault(config.Params, "targetPort", 80)
 	if err != nil {
@@ -246,11 +246,6 @@ func (nps *networkPolicyEnforcementMeasurement) create(config *measurement.Confi
 	if err != nil {
 		return err
 	}
-
-	//measureCilium, err := util.GetBoolOrDefault(config.Params, "measureCilium", false)
-	//if err != nil {
-	//	return err
-	//}
 
 	templateMap := map[string]interface{}{
 		//"Name":                netPolicyTestClientName,
@@ -316,12 +311,7 @@ func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTempl
 		time.Sleep(10 * time.Second)
 	}
 
-	// Create a policy that allows egress from policy creation test client pods to
-	// target pods.
-	//return nps.createPolicyToTargetPods(policyCreationTest, false, true)
-
 	go nps.createLoadPolicies(config)
-
 	nps.createAllowPoliciesForPolicyCreationLatency()
 
 	testRunDuration := time.Duration(testRunMinutes) * time.Minute
@@ -418,12 +408,6 @@ func (nps *networkPolicyEnforcementMeasurement) createTestClientDeployments(temp
 		templateMap["Name"] = fmt.Sprintf("%s-%s-%d", testType, netPolicyTestClientName, i)
 		templateMap["TargetNamespace"] = ns
 		templateMap["AllowPolicyName"] = fmt.Sprintf("%s-%d", allowPolicyName, i)
-
-		// Metrics ports need to be different when there will be multiple test
-		// client pods scheduled on the same node.
-		//if incrementPorts {
-		//	templateMap["MetricsPort"] = templateMap["MetricsPort"].(int) + 1
-		//}
 
 		if err := nps.framework.ApplyTemplatedManifests(clientDeploymentFilePath, templateMap); err != nil {
 			return fmt.Errorf("error while creating test client deployment: %v", err)
