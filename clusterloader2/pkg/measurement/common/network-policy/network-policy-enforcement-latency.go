@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -74,7 +75,7 @@ const (
 	defaultPolicyLoadBaseName = "small-deployment"
 	defaultPolicyLoadCount    = 1000
 	defaultPolicyLoadQPS      = 10
-	defaultTestRunMinutes     = 5
+	//defaultTestRunMinutes     = 5
 )
 
 func init() {
@@ -275,10 +276,10 @@ func (nps *networkPolicyEnforcementMeasurement) startPodCreationTest(depTemplate
 
 func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTemplateMap map[string]interface{}, config *measurement.Config) error {
 	klog.Infof("Starting policy creation network policy enforcement latency measurement")
-	testRunMinutes, err := util.GetIntOrDefault(config.Params, "testRunMinutes", defaultTestRunMinutes)
-	if err != nil {
-		return err
-	}
+	//testRunMinutes, err := util.GetIntOrDefault(config.Params, "testRunMinutes", defaultTestRunMinutes)
+	//if err != nil {
+	//	return err
+	//}
 
 	if nps.baseline {
 		klog.Infof("Baseline flag is specified, which is only used for pod creation test, and means that no network policies should be created. Skipping policy creation test")
@@ -311,12 +312,21 @@ func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTempl
 		time.Sleep(10 * time.Second)
 	}
 
-	go nps.createLoadPolicies(config)
-	nps.createAllowPoliciesForPolicyCreationLatency()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	// Create load policies while allow policies are being created to take network
+	// policy churn into account.
+	go func() {
+		nps.createLoadPolicies(config)
+		wg.Done()
+	}()
 
-	testRunDuration := time.Duration(testRunMinutes) * time.Minute
-	klog.Infof("Running network policy creation enforcement latency test for %v", testRunDuration)
-	time.Sleep(testRunDuration)
+	nps.createAllowPoliciesForPolicyCreationLatency()
+	wg.Wait()
+
+	//testRunDuration := time.Duration(testRunMinutes) * time.Minute
+	//klog.Infof("Running network policy creation enforcement latency test for %v", testRunDuration)
+	//time.Sleep(testRunDuration)
 
 	return nil
 }
@@ -356,12 +366,6 @@ func (nps *networkPolicyEnforcementMeasurement) createPolicyAllowAPIServer() err
 }
 
 func (nps *networkPolicyEnforcementMeasurement) createPolicyToTargetPods(testType, targetNamespace string, podCreation, allowForTargetPods bool, idx int) error {
-	//var policyName string
-	//if policy, err := nps.k8sClient.NetworkingV1().NetworkPolicies(nps.testClientNamespace).Get(context.TODO(), policyName, metav1.GetOptions{}); err == nil && policy != nil {
-	//	klog.Infof("Attempting to create %q network policy, but it already exists", policyName)
-	//	return nil
-	//}
-
 	templateMap := map[string]interface{}{
 		//"Name":           allowPolicyName,
 		"Namespace":      nps.testClientNamespace,
@@ -435,10 +439,10 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 		klog.Errorf("Failed getting policyLoadQPS value, error: %v", err)
 		return
 	}
-	// Reduce qps and policies per namespace by a factor of 2, because 2 different
-	// policies are created in each iteration.
-	policiesPerNs := (policyLoadCount / len(nps.targetNamespaces)) / 2
-	qpsSleepDuration := (2 * time.Second) / time.Duration(policyLoadQPS)
+
+	expectedFinishTime := time.Now().Add(time.Duration(policyLoadCount/policyLoadQPS) * time.Second)
+	policiesPerNs := policyLoadCount / len(nps.targetNamespaces)
+	qpsSleepDuration := (1 * time.Second) / time.Duration(policyLoadQPS)
 
 	for nsIdx, ns := range nps.targetNamespaces {
 		baseCidr := fmt.Sprintf("10.0.%d.0/24", nsIdx)
@@ -461,31 +465,14 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 				}
 			}()
 
-			// More policies for test client pods.
-			second := depIdx
-			third := 0
-			fourth := nsIdx
-			if depIdx > 255 {
-				second = depIdx % 255
-				third++
-			}
-			cidr := fmt.Sprintf("10.%d.%d.%d/32", second, third, fourth)
-			templateMapForTestClientPods := map[string]interface{}{
-				"Name":                  fmt.Sprintf("policy-load-%d-%d", depIdx, nsIdx),
-				"Namespace":             nps.testClientNamespace,
-				"PodSelectorLabelKey":   "test",
-				"PodSelectorLabelValue": netPolicyTestClientName,
-				"CIDR":                  cidr,
-			}
-
-			go func() {
-				if err := nps.framework.ApplyTemplatedManifests(policyLoadFilePath, templateMapForTestClientPods); err != nil {
-					klog.Errorf("error while creating load network policy for label selector 'test=%s': %v", netPolicyTestClientName, err)
-				}
-			}()
 			time.Sleep(qpsSleepDuration)
 		}
 	}
+
+	//expectedSecondsToApply := policyLoadCount / policyLoadQPS
+	//time.Sleep(time.Duration(expectedSecondsToApply) * time.Second)
+
+	time.Sleep(time.Until(expectedFinishTime))
 }
 
 func (nps *networkPolicyEnforcementMeasurement) createAllowPoliciesForPolicyCreationLatency() {
