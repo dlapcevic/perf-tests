@@ -22,35 +22,35 @@ steps:
       # Network policy enforcement metrics gathered from the test clients.
       {{if $policyCreation}}
         - name: PolicyCreation - TargetCount
-          query: sum(policy_enforcement_latency_policy_creation_seconds_count)#[%v]
+          query: sum(policy_enforcement_latency_policy_creation_seconds_count)
         - name: PolicyCreation - Bucket 5s
-          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="5"})#[%v]
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="5"})
         - name: PolicyCreation - Bucket 10s
-          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="10"})#[%v]
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="10"})
         - name: PolicyCreation - Bucket 60s
-          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="60"})#[%v]
+          query: sum(policy_enforcement_latency_policy_creation_seconds_bucket{le="60"})
         - name: PolicyCreation - Perc50
-          query: histogram_quantile(0.5, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))#[%v]
+          query: histogram_quantile(0.5, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))
         - name: PolicyCreation - Perc90
-          query: histogram_quantile(0.9, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))#[%v]
+          query: histogram_quantile(0.9, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))
         - name: PolicyCreation - Perc95
-          query: histogram_quantile(0.95, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))#[%v]
+          query: histogram_quantile(0.95, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))
         - name: PolicyCreation - Perc99
-          query: histogram_quantile(0.99, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))#[%v]
+          query: histogram_quantile(0.99, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))
       {{end}}
       {{if $podCreation}}
         - name: PodCreation - TargetCount
-          query: sum(policy_enforcement_latency_pod_creation_seconds_count)#[%v:]
+          query: sum(policy_enforcement_latency_pod_creation_seconds_count)
         - name: PodCreation - Bucket 1s
-          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="1"})#[%v]
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="1"})
         - name: PodCreation - Bucket 5s
-          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="5"})#[%v]
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="5"})
         - name: PodCreation - Bucket 10s
-          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="10"})#[%v]
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="10"})
         - name: PodCreation - Bucket 60s
-          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="60"})#[%v]
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="60"})
         - name: PodCreation - Bucket 600s
-          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="600"})#[%v]
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="600"})
         - name: PodCreation - Perc50
           query: histogram_quantile(0.5, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
         - name: PodCreation - Perc90
@@ -60,7 +60,7 @@ steps:
         - name: PodCreation - Perc99
           query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
         - name: PodIpAssignedLatency - TargetCount
-          query: sum(pod_ip_address_assigned_latency_seconds_count)#[%v:]
+          query: sum(pod_ip_address_assigned_latency_seconds_count)
         - name: PodIpAssignedLatency - Perc50
           query: histogram_quantile(0.50, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
         - name: PodIpAssignedLatency - Perc90

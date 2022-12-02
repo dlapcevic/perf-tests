@@ -72,10 +72,9 @@ const (
 	policyEgressTargetPodsFilePath = manifestPathPrefix + "/" + "policy-egress-allow-target-pods.yaml"
 	policyLoadFilePath             = manifestPathPrefix + "/" + "policy-load.yaml"
 
-	defaultPolicyLoadBaseName = "small-deployment"
-	defaultPolicyLoadCount    = 1000
-	defaultPolicyLoadQPS      = 10
-	//defaultTestRunMinutes     = 5
+	defaultPolicyTargetLoadBaseName = "small-deployment"
+	defaultPolicyLoadCount          = 1000
+	defaultPolicyLoadQPS            = 10
 )
 
 func init() {
@@ -254,12 +253,10 @@ func (nps *networkPolicyEnforcementMeasurement) run(config *measurement.Config) 
 		"TestClientLabel":     netPolicyTestClientName,
 		"TargetLabelSelector": fmt.Sprintf("%s = %s", nps.targetLabelKey, nps.targetLabelValue),
 		"TargetPort":          targetPort,
-		//"AllowPolicyName":     allowPolicyName,
-		"MetricsPort":     metricsPort,
-		"TestPodCreation": podCreation,
-		//"MeasureCilium":       measureCilium,
-		"ServiceAccountName": netPolicyTestClientName,
-		"ExpectedTargets":    expectedTargets,
+		"MetricsPort":         metricsPort,
+		"TestPodCreation":     podCreation,
+		"ServiceAccountName":  netPolicyTestClientName,
+		"ExpectedTargets":     expectedTargets,
 	}
 
 	if podCreation {
@@ -276,11 +273,6 @@ func (nps *networkPolicyEnforcementMeasurement) startPodCreationTest(depTemplate
 
 func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTemplateMap map[string]interface{}, config *measurement.Config) error {
 	klog.Infof("Starting policy creation network policy enforcement latency measurement")
-	//testRunMinutes, err := util.GetIntOrDefault(config.Params, "testRunMinutes", defaultTestRunMinutes)
-	//if err != nil {
-	//	return err
-	//}
-
 	if nps.baseline {
 		klog.Infof("Baseline flag is specified, which is only used for pod creation test, and means that no network policies should be created. Skipping policy creation test")
 		return nil
@@ -324,10 +316,6 @@ func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTempl
 	nps.createAllowPoliciesForPolicyCreationLatency()
 	wg.Wait()
 
-	//testRunDuration := time.Duration(testRunMinutes) * time.Minute
-	//klog.Infof("Running network policy creation enforcement latency test for %v", testRunDuration)
-	//time.Sleep(testRunDuration)
-
 	return nil
 }
 
@@ -367,11 +355,9 @@ func (nps *networkPolicyEnforcementMeasurement) createPolicyAllowAPIServer() err
 
 func (nps *networkPolicyEnforcementMeasurement) createPolicyToTargetPods(testType, targetNamespace string, podCreation, allowForTargetPods bool, idx int) error {
 	templateMap := map[string]interface{}{
-		//"Name":           allowPolicyName,
 		"Namespace":      nps.testClientNamespace,
 		"TypeLabelValue": testType,
 		"TargetLabelKey": nps.targetLabelKey,
-		//"TargetLabelValue": nps.targetLabelValue,
 	}
 
 	if len(targetNamespace) > 0 {
@@ -422,25 +408,31 @@ func (nps *networkPolicyEnforcementMeasurement) createTestClientDeployments(temp
 }
 
 func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measurement.Config) {
-	policyLoadBaseName, err := util.GetStringOrDefault(config.Params, "policyLoadBaseName", defaultPolicyLoadBaseName)
+	policyLoadTargetBaseName, err := util.GetStringOrDefault(config.Params, "policyLoadTargetBaseName", defaultPolicyTargetLoadBaseName)
 	if err != nil {
-		klog.Errorf("Failed getting policyLoadBaseName value, error: %v", err)
+		klog.Errorf("Failed getting parameter policyLoadBaseName value, error: %v", err)
 		return
 	}
 
 	policyLoadCount, err := util.GetIntOrDefault(config.Params, "policyLoadCount", defaultPolicyLoadCount)
 	if err != nil {
-		klog.Errorf("Failed getting policyLoadBaseName value, error: %v", err)
+		klog.Errorf("Failed getting parameter policyLoadBaseName value, error: %v", err)
 		return
 	}
 
 	policyLoadQPS, err := util.GetIntOrDefault(config.Params, "policyLoadQPS", defaultPolicyLoadQPS)
 	if err != nil {
-		klog.Errorf("Failed getting policyLoadQPS value, error: %v", err)
+		klog.Errorf("Failed getting parameter policyLoadQPS value, error: %v", err)
 		return
 	}
 
 	expectedFinishTime := time.Now().Add(time.Duration(policyLoadCount/policyLoadQPS) * time.Second)
+	// Should it also consider the time it takes kube-apiserver to process these
+	// requests? Similar to how it waits for all deployments to be created. If the
+	// QPS of requests for creating policies is too high, this time will not be
+	// sufficient to guard the next steps of the test from getting affected.
+	// Can the processing rate be estimated? (e.g. 100 QPS for network policy)?
+
 	policiesPerNs := policyLoadCount / len(nps.targetNamespaces)
 	qpsSleepDuration := (1 * time.Second) / time.Duration(policyLoadQPS)
 
@@ -450,7 +442,7 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 		for depIdx := 0; depIdx < policiesPerNs; depIdx++ {
 			// This will be the same as "small-deployment-0".."small-deployment-50",
 			// that is used in the load test.
-			podSelectorLabelValue := fmt.Sprintf("policy-load-%s-%d", policyLoadBaseName, depIdx)
+			podSelectorLabelValue := fmt.Sprintf("policy-load-%s-%d", policyLoadTargetBaseName, depIdx)
 			templateMapForTargetPods := map[string]interface{}{
 				"Name":                  fmt.Sprintf("%s-%d", podSelectorLabelValue, nsIdx),
 				"Namespace":             ns,
@@ -468,9 +460,6 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 			time.Sleep(qpsSleepDuration)
 		}
 	}
-
-	//expectedSecondsToApply := policyLoadCount / policyLoadQPS
-	//time.Sleep(time.Duration(expectedSecondsToApply) * time.Second)
 
 	time.Sleep(time.Until(expectedFinishTime))
 }
