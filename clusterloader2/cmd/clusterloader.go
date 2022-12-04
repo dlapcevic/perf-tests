@@ -28,7 +28,7 @@ import (
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/cluster/ports"
 	"k8s.io/perf-tests/clusterloader2/api"
 	"k8s.io/perf-tests/clusterloader2/pkg/config"
@@ -196,7 +196,6 @@ func completeConfig(m *framework.MultiClientSet) error {
 	if clusterLoaderConfig.ClusterConfig.K8SClientsNumber == 0 {
 		clusterLoaderConfig.ClusterConfig.K8SClientsNumber = getClientsNumber(clusterLoaderConfig.ClusterConfig.Nodes)
 	}
-	prometheus.CompleteConfig(&clusterLoaderConfig.PrometheusConfig)
 	return nil
 }
 

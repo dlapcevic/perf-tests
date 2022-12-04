@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"k8s.io/perf-tests/clusterloader2/pkg/errors"
 	"k8s.io/perf-tests/clusterloader2/pkg/measurement"
 	measurementutil "k8s.io/perf-tests/clusterloader2/pkg/measurement/util"
@@ -58,6 +58,12 @@ type resourceUsageMetricMeasurement struct {
 // - start - Starts resource metrics collecting.
 // - gather - Gathers and prints current resource usage metrics.
 func (e *resourceUsageMetricMeasurement) Execute(config *measurement.Config) ([]measurement.Summary, error) {
+	provider := config.ClusterFramework.GetClusterConfig().Provider
+	if !provider.Features().SupportResourceUsageMetering {
+		klog.Warningf("fetching resource usage metrics is not possible for provider %q", provider.Name())
+		return nil, nil
+	}
+
 	action, err := util.GetString(config.Params, "action")
 	if err != nil {
 		return nil, err

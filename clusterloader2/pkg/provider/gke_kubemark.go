@@ -18,7 +18,7 @@ package provider
 
 import (
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	sshutil "k8s.io/kubernetes/test/e2e/framework/ssh"
 	prom "k8s.io/perf-tests/clusterloader2/pkg/prometheus/clients"
 )
@@ -41,6 +41,7 @@ func NewGKEKubemarkProvider(config map[string]string) *GKEKubemarkProvider {
 			SupportAccessAPIServerPprofEndpoint: true,
 			SupportSnapshotPrometheusDisk:       true,
 			ShouldScrapeKubeProxy:               false,
+			SupportResourceUsageMetering:        true,
 			ShouldPrometheusScrapeApiserverOnly: true,
 		},
 		config: config,
