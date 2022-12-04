@@ -196,7 +196,6 @@ func completeConfig(m *framework.MultiClientSet) error {
 	if clusterLoaderConfig.ClusterConfig.K8SClientsNumber == 0 {
 		clusterLoaderConfig.ClusterConfig.K8SClientsNumber = getClientsNumber(clusterLoaderConfig.ClusterConfig.Nodes)
 	}
-	prometheus.CompleteConfig(&clusterLoaderConfig.PrometheusConfig)
 	return nil
 }
 

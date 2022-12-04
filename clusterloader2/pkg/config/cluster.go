@@ -62,8 +62,6 @@ type ClusterConfig struct {
 type ExecServiceConfig struct {
 	// Determines if service config should be enabled.
 	Enable bool
-	// Sets path to the deployment definition.
-	DeploymentYaml string
 }
 
 // ModifierConfig represent all flags used by test modification
@@ -76,35 +74,30 @@ type ModifierConfig struct {
 
 // PrometheusConfig represents all flags used by prometheus.
 type PrometheusConfig struct {
-	TearDownServer               bool
-	EnableServer                 bool
-	EnablePushgateway            bool
-	ScrapeEtcd                   bool
-	ScrapeNodeExporter           bool
-	ScrapeWindowsNodeExporter    bool
-	ScrapeKubelets               bool
-	ScrapeMasterKubelets         bool
-	ScrapeKubeProxy              bool
-	ScrapeKubeStateMetrics       bool
-	ScrapeMetricsServerMetrics   bool
-	ScrapeNodeLocalDNS           bool
-	ScrapeAnet                   bool
-	ScrapeCiliumOperator         bool
-	APIServerScrapePort          int
-	SnapshotProject              string
-	ManifestPath                 string
-	CoreManifests                string
-	DefaultServiceMonitors       string
-	KubeStateMetricsManifests    string
-	MasterIPServiceMonitors      string
-	MetricsServerManifests       string
-	NodeExporterPod              string
-	WindowsNodeExporterManifests string
-	PushgatewayManifests         string
-	StorageClassProvisioner      string
-	StorageClassVolumeType       string
-	PVCStorageClass              string
-	ReadyTimeout                 time.Duration
+	TearDownServer             bool
+	EnableServer               bool
+	EnablePushgateway          bool
+	ScrapeEtcd                 bool
+	ScrapeNodeExporter         bool
+	ScrapeWindowsNodeExporter  bool
+	ScrapeKubelets             bool
+	ScrapeMasterKubelets       bool
+	ScrapeKubeProxy            bool
+	KubeProxySelectorKey       string
+	ScrapeKubeStateMetrics     bool
+	ScrapeMetricsServerMetrics bool
+	ScrapeNodeLocalDNS         bool
+	ScrapeAnet                 bool
+	ScrapeCiliumOperator       bool
+	ScrapeMastersWithPublicIPs bool
+	APIServerScrapePort        int
+	SnapshotProject            string
+	ManifestPath               string
+	StorageClassProvisioner    string
+	StorageClassVolumeType     string
+	PVCStorageClass            string
+	ReadyTimeout               time.Duration
+	PrometheusMemoryRequest    string
 }
 
 // GetMasterIP returns the first master ip, added for backward compatibility.
