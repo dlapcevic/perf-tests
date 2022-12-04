@@ -18,6 +18,7 @@ package network_policy
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"strings"
 	"sync"
@@ -63,19 +64,21 @@ const (
 	allowPolicyName = "allow-egress-to-target"
 	denyPolicyName  = "deny-egress-to-target"
 
-	manifestPathPrefix             = "./pkg/measurement/common/network-policy/manifests"
-	serviceAccountFilePath         = manifestPathPrefix + "/" + "serviceaccount.yaml"
-	clusterRoleFilePath            = manifestPathPrefix + "/" + "clusterrole.yaml"
-	clusterRoleBindingFilePath     = manifestPathPrefix + "/" + "clusterrolebinding.yaml"
-	clientDeploymentFilePath       = manifestPathPrefix + "/" + "dep-test-client.yaml"
-	policyEgressApiserverFilePath  = manifestPathPrefix + "/" + "policy-egress-allow-apiserver.yaml"
-	policyEgressTargetPodsFilePath = manifestPathPrefix + "/" + "policy-egress-allow-target-pods.yaml"
-	policyLoadFilePath             = manifestPathPrefix + "/" + "policy-load.yaml"
+	serviceAccountFilePath         = "manifests/serviceaccount.yaml"
+	clusterRoleFilePath            = "manifests/clusterrole.yaml"
+	clusterRoleBindingFilePath     = "manifests/clusterrolebinding.yaml"
+	clientDeploymentFilePath       = "manifests/dep-test-client.yaml"
+	policyEgressApiserverFilePath  = "manifests/policy-egress-allow-apiserver.yaml"
+	policyEgressTargetPodsFilePath = "manifests/policy-egress-allow-target-pods.yaml"
+	policyLoadFilePath             = "manifests/policy-load.yaml"
 
 	defaultPolicyTargetLoadBaseName = "small-deployment"
 	defaultPolicyLoadCount          = 1000
 	defaultPolicyLoadQPS            = 10
 )
+
+//go:embed manifests
+var manifestsFS embed.FS
 
 func init() {
 	klog.Infof("Registering %q", networkPolicyEnforcementName)
@@ -210,15 +213,15 @@ func (nps *networkPolicyEnforcementMeasurement) createPermissionResources() erro
 		"Namespace": nps.testClientNamespace,
 	}
 
-	if err := nps.framework.ApplyTemplatedManifests(serviceAccountFilePath, templateMap); err != nil {
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, serviceAccountFilePath, templateMap); err != nil {
 		return fmt.Errorf("error while creating serviceaccount: %v", err)
 	}
 
-	if err := nps.framework.ApplyTemplatedManifests(clusterRoleFilePath, templateMap); err != nil {
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, clusterRoleFilePath, templateMap); err != nil {
 		return fmt.Errorf("error while creating clusterrole: %v", err)
 	}
 
-	if err := nps.framework.ApplyTemplatedManifests(clusterRoleBindingFilePath, templateMap); err != nil {
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, clusterRoleBindingFilePath, templateMap); err != nil {
 		return fmt.Errorf("error while creating clusterrolebinding: %v", err)
 	}
 
@@ -346,7 +349,7 @@ func (nps *networkPolicyEnforcementMeasurement) createPolicyAllowAPIServer() err
 		"kubeAPIServerIP": kubeAPIServerIP,
 	}
 
-	if err := nps.framework.ApplyTemplatedManifests(policyEgressApiserverFilePath, templateMap); err != nil {
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, policyEgressApiserverFilePath, templateMap); err != nil {
 		return fmt.Errorf("error while creating allow egress to apiserver network policy: %v", err)
 	}
 
@@ -382,7 +385,7 @@ func (nps *networkPolicyEnforcementMeasurement) createPolicyToTargetPods(testTyp
 		templateMap["Name"] = fmt.Sprintf("%s-%d", basePolicyName, idx)
 	}
 
-	if err := nps.framework.ApplyTemplatedManifests(policyEgressTargetPodsFilePath, templateMap); err != nil {
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, policyEgressTargetPodsFilePath, templateMap); err != nil {
 		return fmt.Errorf("error while creating allow egress to pods network policy: %v", err)
 	}
 
@@ -399,7 +402,7 @@ func (nps *networkPolicyEnforcementMeasurement) createTestClientDeployments(temp
 		templateMap["TargetNamespace"] = ns
 		templateMap["AllowPolicyName"] = fmt.Sprintf("%s-%d", allowPolicyName, i)
 
-		if err := nps.framework.ApplyTemplatedManifests(clientDeploymentFilePath, templateMap); err != nil {
+		if err := nps.framework.ApplyTemplatedManifests(manifestsFS, clientDeploymentFilePath, templateMap); err != nil {
 			return fmt.Errorf("error while creating test client deployment: %v", err)
 		}
 	}
@@ -452,7 +455,7 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 			}
 
 			go func() {
-				if err := nps.framework.ApplyTemplatedManifests(policyLoadFilePath, templateMapForTargetPods); err != nil {
+				if err := nps.framework.ApplyTemplatedManifests(manifestsFS, policyLoadFilePath, templateMapForTargetPods); err != nil {
 					klog.Errorf("error while creating load network policy for label selector 'name=%s': %v", podSelectorLabelValue, err)
 				}
 			}()
