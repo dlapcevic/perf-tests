@@ -1,16 +1,15 @@
 {{$serviceAccountName := "np-latency-test"}}
-{{$testLabelValue := "connectivity-test"}}
+{{$testLabelValue := "np-test-client"}}
 {{$targetLabelKey := "group"}}
 {{$targetLabelValue := "net-policy-latency"}}
 
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 100}}
 {{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT 30}}
 
-{{$namespaces := DefaultParam .CL2_NAMESPACES 5}}
-{{$replicasPerNamespace := DefaultParam .CL2_REPLICAS_PER_NAMESPACE 5}}
+{{$namespaces := DefaultParam .CL2_NAMESPACES 50}}
+{{$replicasPerNamespace := DefaultParam .CL2_REPLICAS_PER_NAMESPACE 360}}
 {{$PODS_PER_DEP := DefaultParam .CL2_PODS_PER_DEP 1}}
 {{$BASE_METRICS_PORT := DefaultParam .CL2_BASE_METRICS_PORT 9154}}
-{{$TARGET_PORT := DefaultParam .CL2_TARGET_PORT 80}}
 
 # Baseline test means that it will measure pod connectivity latency without creating network policies.
 # This only applies to the measured latency for pod creation, and not for network policy creation.
@@ -71,9 +70,9 @@ steps:
         - name: PodCreation - Bucket 10s
           query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="10"})#[%v:]
         - name: PodCreation - Bucket 60s
-          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="60"})
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="60"})#[%v:]
         - name: PodCreation - Bucket 600s
-          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="600"})
+          query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="600"})#[%v:]
         - name: PodCreation - Perc99
           query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v])) by (le))
           # threshold: 30
@@ -104,34 +103,65 @@ steps:
           query: histogram_quantile(0.90, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
         - name: PodIpAssignedLatency - Perc99
           query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v])) by (le))
-        # Service reachability metrics.
-        - name: ServiceTargetCount
-          query: sum(target_service_count)
-        - name: ServiceTargetReachedCount
-          query: sum(target_service_reached_count)
-
-- name: Wait 2 minute to initialize prometheus query measurements
-  measurements:
-  - Identifier: Wait
-    Method: Sleep
-    Params:
-      duration: 2m
-
-- name: Creating Services
-  phases:
-  - namespaceRange:
-      min: 1
-      max: {{$namespaces}}
-    replicasPerNamespace: {{$replicasPerNamespace}}
-    tuningSet: defaultQPS
-    objectBundle:
-    - basename: np-svc
-      objectTemplatePath: service.yaml
-      templateFillMap:
-        TestLabelValue: {{$testLabelValue}}
-        TargetLabelKey: {{$targetLabelKey}}
-        TargetLabelValue: {{$targetLabelValue}}
-        TargetPort: {{$TARGET_PORT}}
+          # threshold: 30
+        - name: CEPPropagationDelay - TargetCount
+          query: sum(cep_propagation_latency_seconds_count)#[%v:]
+        - name: CEPPropagationDelay - Bucket 1s
+          query: sum(cep_propagation_latency_seconds_bucket{le="1"})#[%v:]
+        - name: CEPPropagationDelay - Bucket 3s
+          query: sum(cep_propagation_latency_seconds_bucket{le="3"})#[%v:]
+        - name: CEPPropagationDelay - Bucket 5s
+          query: sum(cep_propagation_latency_seconds_bucket{le="5"})#[%v:]
+        - name: CEPPropagationDelay - Bucket 10s
+          query: sum(cep_propagation_latency_seconds_bucket{le="10"})#[%v:]
+        - name: CEPPropagationDelay - Bucket 30s
+          query: sum(cep_propagation_latency_seconds_bucket{le="30"})#[%v:]
+        - name: CEPPropagationDelay - Bucket 60s
+          query: sum(cep_propagation_latency_seconds_bucket{le="60"})#[%v:]
+        - name: CEPPropagationDelay - Bucket 600s
+          query: sum(cep_propagation_latency_seconds_bucket{le="600"})#[%v:]
+        - name: CEPPropagationDelay - Perc99
+          query: histogram_quantile(0.99, sum(rate(cep_propagation_latency_seconds_bucket[%v])) by (le))
+          # threshold: 30
+        # - name: PodReadyStateLatency - TargetCount
+        #   query: sum(pod_ready_latency_seconds_count)#[%v:]
+        # - name: PodReadyStateLatency - Bucket 1s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="1"})#[%v:]
+        # - name: PodReadyStateLatency - Bucket 3s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="3"})#[%v:]
+        # - name: PodReadyStateLatency - Bucket 5s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="5"})#[%v:]
+        # - name: PodReadyStateLatency - Bucket 10s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="10"})#[%v:]
+        # - name: PodReadyStateLatency - Bucket 30s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="30"})#[%v:]
+        # - name: PodReadyStateLatency - Bucket 60s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="60"})#[%v:]
+        # - name: PodReadyStateLatency - Bucket 600s
+        #   query: sum(pod_ready_latency_seconds_bucket{le="600"})#[%v:]
+        # - name: PodReadyStateLatency - Perc99
+        #   query: histogram_quantile(0.99, sum(rate(pod_ready_latency_seconds_bucket[%v])) by (le))
+        #   threshold: 30
+        # - name: PodScheduledLatency - TargetCount
+        #   query: sum(pod_scheduled_latency_seconds_count)#[%v:]
+        # - name: PodScheduledLatency - Bucket 1s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="1"})#[%v:]
+        # - name: PodScheduledLatency - Bucket 3s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="3"})#[%v:]
+        # - name: PodScheduledLatency - Bucket 5s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="5"})#[%v:]
+        # - name: PodScheduledLatency - Bucket 10s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="10"})#[%v:]
+        # - name: PodScheduledLatency - Bucket 30s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="30"})#[%v:]
+        # - name: PodScheduledLatency - Bucket 60s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="60"})#[%v:]
+        # - name: PodScheduledLatency - Bucket 600s
+        #   query: sum(pod_scheduled_latency_seconds_bucket{le="600"})#[%v:]
+        # - name: PodScheduledLatency - Perc99
+        #   query: histogram_quantile(0.99, sum(rate(pod_scheduled_latency_seconds_bucket[%v])) by (le))
+        #   threshold: 30
+        
 
 - name: Wait for test client pods (pod creation) - start measurement
   measurements:
@@ -144,7 +174,7 @@ steps:
     Params:
       action: start
       labelSelector: "test = {{$testLabelValue}}"
-      operationTimeout: 3m
+      operationTimeout: 5m
 
 - name: Setup network policy enforcement latency measurement
   measurements:
@@ -164,7 +194,6 @@ steps:
     Params:
       action: create
       podCreation: true
-      targetPort: {{$TARGET_PORT}}
       expectedTargets: 1000
       measureCilium: false # false for Calico, true for Cilium
 
@@ -204,7 +233,6 @@ steps:
         TestLabelValue: {{$testLabelValue}}
         TargetLabelKey: {{$targetLabelKey}}
         TargetLabelValue: {{$targetLabelValue}}
-        TargetPort: {{$TARGET_PORT}}
 
 - name: Wait for target pods - gather measuerement
   measurements:
@@ -214,12 +242,12 @@ steps:
     Params:
       action: gather
 
-- name: Wait 1 minutes for pods to be reached (Pod creation)
+- name: Wait 15min for pods to be reached (Pod creation)
   measurements:
    - Identifier: Wait
      Method: Sleep
      Params:
-       duration: 1m
+       duration: 15m
 
 {{if not $BASELINE_TEST}}
 - name: Start pod creation network policy enforcement latency measurement
@@ -232,16 +260,15 @@ steps:
       # targetLabelValue: {{$targetLabelValue}}
       # baseline: {{$BASELINE_TEST}}
       podCreation: false
-      targetPort: {{$TARGET_PORT}}
       expectedTargets: 1000
       # measureCilium: false # false for Calico, true for Cilium
 
-- name: Wait 1 minutes for pods to be reached (Policy creation)
+- name: Wait 5min for pods to be reached (Policy creation)
   measurements:
    - Identifier: Wait
      Method: Sleep
      Params:
-       duration: 1m
+       duration: 5m
 {{end}}
 
 # - name: Gather measurements

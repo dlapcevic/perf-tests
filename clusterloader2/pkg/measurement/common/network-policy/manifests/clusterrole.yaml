@@ -4,11 +4,11 @@ metadata:
   name: {{.Name}}
 rules:
 - apiGroups: [""]
-  resources: ["pods", "events"]
+  resources: ["pods", "services", "events"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["networking.k8s.io"]
   resources: ["networkpolicies"]
   verbs: ["create", "get", "list", "watch"]
-- apiGroups: ["cilium.io"]
-  resources: ["ciliumendpointslices"]
-  verbs: ["get", "list", "watch"]
+#- apiGroups: ["cilium.io"]
+#  resources: ["ciliumendpointslices"]
+#  verbs: ["get", "list", "watch"]

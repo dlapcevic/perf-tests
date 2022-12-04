@@ -24,4 +24,4 @@ spec:
       - name: {{.Name}}
         image: nginx
         ports:
-        - containerPort: 80
+        - containerPort: {{.TargetPort}}

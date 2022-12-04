@@ -3,11 +3,12 @@ kind: Service
 metadata:
   name: {{.Name}}
   labels:
-    group: net-policy-latency
+#    group: net-policy-latency
     test: {{.TestLabelValue}}-{{.Index}}
+    {{.TargetLabelKey}}: {{.TargetLabelValue}}
 spec:
   selector:
     test: {{.TestLabelValue}}-{{.Index}}
   ports:
-  - port: 80
-    targetPort: 80
+  - port: {{.TargetPort}}
+    targetPort: {{.TargetPort}}

@@ -1,8 +1,8 @@
 name: network-policy-latency
 automanagednamespaces: 0
 namespace:
-  number: 50
-  prefix: test-amgbcj
+  number: 5
+  prefix: test-vwev3c
   deletestalenamespaces: false
   deleteautomanagednamespaces: true
   enableexistingnamespaces: false
@@ -47,9 +47,9 @@ steps:
       - name: PodCreation - Bucket 10s
         query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="10"})#[%v:]
       - name: PodCreation - Bucket 60s
-        query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="60"})#[%v:]
+        query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="60"})
       - name: PodCreation - Bucket 600s
-        query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="600"})#[%v:]
+        query: sum(policy_enforcement_latency_pod_creation_seconds_bucket{le="600"})
       - name: PodCreation - Perc99
         query: histogram_quantile(0.99, sum(rate(policy_enforcement_latency_pod_creation_seconds_bucket[%v]))
           by (le))
@@ -84,25 +84,10 @@ steps:
       - name: PodIpAssignedLatency - Perc99
         query: histogram_quantile(0.99, sum(rate(pod_ip_address_assigned_latency_seconds_bucket[%v]))
           by (le))
-      - name: CEPPropagationDelay - TargetCount
-        query: sum(cep_propagation_latency_seconds_count)#[%v:]
-      - name: CEPPropagationDelay - Bucket 1s
-        query: sum(cep_propagation_latency_seconds_bucket{le="1"})#[%v:]
-      - name: CEPPropagationDelay - Bucket 3s
-        query: sum(cep_propagation_latency_seconds_bucket{le="3"})#[%v:]
-      - name: CEPPropagationDelay - Bucket 5s
-        query: sum(cep_propagation_latency_seconds_bucket{le="5"})#[%v:]
-      - name: CEPPropagationDelay - Bucket 10s
-        query: sum(cep_propagation_latency_seconds_bucket{le="10"})#[%v:]
-      - name: CEPPropagationDelay - Bucket 30s
-        query: sum(cep_propagation_latency_seconds_bucket{le="30"})#[%v:]
-      - name: CEPPropagationDelay - Bucket 60s
-        query: sum(cep_propagation_latency_seconds_bucket{le="60"})#[%v:]
-      - name: CEPPropagationDelay - Bucket 600s
-        query: sum(cep_propagation_latency_seconds_bucket{le="600"})#[%v:]
-      - name: CEPPropagationDelay - Perc99
-        query: histogram_quantile(0.99, sum(rate(cep_propagation_latency_seconds_bucket[%v]))
-          by (le))
+      - name: ServiceTargetCount
+        query: sum(target_service_count)
+      - name: ServiceTargetReachedCount
+        query: sum(target_service_reached_count)
       unit: s
     identifier: GetNetPolicyLatencyMetrics
     instances: []
@@ -112,11 +97,43 @@ steps:
   name: Start Prometheus generic metrics measurements
 - phases: []
   measurements:
+  - method: Sleep
+    params:
+      duration: 2m
+    identifier: Wait
+    instances: []
+  module:
+    path: ""
+    params: {}
+  name: Wait 2 minute to initialize prometheus query measurements
+- phases:
+  - namespacerange:
+      min: 1
+      max: 5
+      basename: null
+    replicaspernamespace: 5
+    tuningset: defaultQPS
+    objectbundle:
+    - basename: np-svc
+      objecttemplatepath: service.yaml
+      templatefillmap:
+        TargetLabelKey: group
+        TargetLabelValue: net-policy-latency
+        TargetPort: 80
+        TestLabelValue: connectivity-test
+      listunknownobjectoptions: null
+  measurements: []
+  module:
+    path: ""
+    params: {}
+  name: Creating Services
+- phases: []
+  measurements:
   - method: WaitForControlledPodsRunning
     params:
       action: start
-      labelSelector: test = np-test-client
-      operationTimeout: 5m
+      labelSelector: test = connectivity-test
+      operationTimeout: 3m
     identifier: ""
     instances:
     - identifier: WaitForTestClientPods
@@ -149,6 +166,7 @@ steps:
       expectedTargets: 1000
       measureCilium: false
       podCreation: true
+      targetPort: 80
     identifier: NetworkPolicyEnforcement
     instances: []
   module:
@@ -188,9 +206,9 @@ steps:
 - phases:
   - namespacerange:
       min: 1
-      max: 50
+      max: 5
       basename: null
-    replicaspernamespace: 360
+    replicaspernamespace: 5
     tuningset: defaultQPS
     objectbundle:
     - basename: np-dep
@@ -199,7 +217,8 @@ steps:
         NumReplicas: 1
         TargetLabelKey: group
         TargetLabelValue: net-policy-latency
-        TestLabelValue: np-test-client
+        TargetPort: 80
+        TestLabelValue: connectivity-test
       listunknownobjectoptions: null
   measurements: []
   module:
@@ -223,13 +242,13 @@ steps:
   measurements:
   - method: Sleep
     params:
-      duration: 45m
+      duration: 1m
     identifier: Wait
     instances: []
   module:
     path: ""
     params: {}
-  name: Wait 45min for pods to be reached (Pod creation)
+  name: Wait 1 minutes for pods to be reached (Pod creation)
 - phases: []
   measurements:
   - method: NetworkPolicyEnforcement
@@ -237,6 +256,7 @@ steps:
       action: create
       expectedTargets: 1000
       podCreation: false
+      targetPort: 80
     identifier: NetworkPolicyEnforcement
     instances: []
   module:
@@ -247,17 +267,17 @@ steps:
   measurements:
   - method: Sleep
     params:
-      duration: 15m
+      duration: 1m
     identifier: Wait
     instances: []
   module:
     path: ""
     params: {}
-  name: Wait 15min for pods to be reached (Policy creation)
+  name: Wait 1 minutes for pods to be reached (Policy creation)
 - phases:
   - namespacerange:
       min: 1
-      max: 50
+      max: 5
       basename: null
     replicaspernamespace: 0
     tuningset: deleteQPS

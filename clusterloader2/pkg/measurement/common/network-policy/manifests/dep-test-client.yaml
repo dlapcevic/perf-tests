@@ -5,7 +5,7 @@ metadata:
   namespace: {{.Namespace}}
   labels:
     test: {{.TestClientLabel}}
-    type: {{.TypeLabel}}
+    type: {{.TypeLabelValue}}
 spec:
   replicas: 1
   selector:
@@ -16,9 +16,9 @@ spec:
       labels:
         name: {{.Name}}
         test: {{.TestClientLabel}}
-        type: {{.TypeLabel}}
+        type: {{.TypeLabelValue}}
     spec:
-    {{if .TestPodCreation}}
+#    {{if .TestPodCreation}}
       nodeSelector:
         test: net-policy-client
       tolerations:
@@ -26,7 +26,7 @@ spec:
         operator: Equal
         value: net-policy-client
         effect: NoSchedule
-    {{end}}
+#    {{end}}
       containers:
       - name: net-policy-latency-client
         ports:
@@ -35,28 +35,31 @@ spec:
           name: npdelaymetrics
           protocol: TCP
         imagePullPolicy: Always
-        image: gcr.io/gke-networking-test-images/scale-tests/network-policy-latency-client:v0.0.4
+        image: gcr.io/gke-networking-test-images/scale-tests/connectivity-client:v0.0.1
+#        image: gcr.io/gke-networking-test-images/scale-tests/network-policy-latency-client:v0.0.4
         # args:
         #   - -targetLabelSelector "group = net-policy-latency"
         command:
         - sh
         - -c
-        - ./network-policy-latency-client 
+        - ./connectivity-client
+          -testClientNamespace="{{.Namespace}}"
           -targetLabelSelector="{{.TargetLabelSelector}}"
           -targetNamespace="{{.TargetNamespace}}"
+          -targetPort={{.TargetPort}}
+          -expectedTargets={{.ExpectedTargets}}
+          -allowPolicyName={{.AllowPolicyName}}
           -metricsPort={{.MetricsPort}}
           -testPodCreation={{.TestPodCreation}}
-          -measureCilium={{.MeasureCilium}}
-          -expectedTargets={{.ExpectedTargets}}
         resources:
-        {{if .TestPodCreation}}
+#        {{if .TestPodCreation}}
           requests:
             cpu: 500m
             memory: 400Mi
-        {{end}}
-          limits:
-            cpu: 900m
-            memory: 800Mi
+#        {{end}}
+#          limits:
+#            cpu: 900m
+#            memory: 800Mi
           # requests:
           #   cpu: 50m
           #   memory: 20Mi

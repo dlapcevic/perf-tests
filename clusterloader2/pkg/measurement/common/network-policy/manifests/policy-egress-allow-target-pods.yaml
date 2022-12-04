@@ -4,12 +4,12 @@ metadata:
   name: {{.Name}}
   namespace: {{.Namespace}}
   labels:
-    type: {{.TypeLabel}}
+    type: {{.TypeLabelValue}}
     #test: {{.TestClientLabel}}
 spec:
   podSelector:
     matchLabels:
-      type: {{.TypeLabel}}
+      type: {{.TypeLabelValue}}
       #test: {{.TestClientLabel}}
   policyTypes:
   - Egress
@@ -18,4 +18,10 @@ spec:
     - podSelector:
         matchLabels:
           {{.TargetLabelKey}}: {{.TargetLabelValue}}
+{{if .OnlyTargetNamespace}}
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{.TargetNamespace}}
+{{else}}
       namespaceSelector: {}
+{{end}}

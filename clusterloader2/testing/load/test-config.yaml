@@ -8,8 +8,7 @@
 # Cater for the case where the number of nodes is less than nodes per namespace. See https://github.com/kubernetes/perf-tests/issues/887
 {{$NODES_PER_NAMESPACE := MinInt .Nodes (DefaultParam .NODES_PER_NAMESPACE 100)}}
 # See https://github.com/kubernetes/perf-tests/pull/1667#issuecomment-769642266
-#{{$IS_SMALL_CLUSTER := lt .Nodes 100}} # Only set to false during the test.
-{{$IS_SMALL_CLUSTER := true}} # Only set to false during the test.
+{{$IS_SMALL_CLUSTER := lt .Nodes 100}}
 {{$PODS_PER_NODE := DefaultParam .PODS_PER_NODE 30}}
 {{$LOAD_TEST_THROUGHPUT := DefaultParam .CL2_LOAD_TEST_THROUGHPUT 10}}
 {{$DELETE_TEST_THROUGHPUT := DefaultParam .CL2_DELETE_TEST_THROUGHPUT $LOAD_TEST_THROUGHPUT}}
@@ -17,8 +16,8 @@
 {{$BIG_GROUP_SIZE := DefaultParam .BIG_GROUP_SIZE 250}}
 {{$MEDIUM_GROUP_SIZE := DefaultParam .MEDIUM_GROUP_SIZE 30}}
 {{$SMALL_GROUP_SIZE := DefaultParam .SMALL_GROUP_SIZE 5}}
-{{$SMALL_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .SMALL_STATEFUL_SETS_PER_NAMESPACE 1}}
-{{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .MEDIUM_STATEFUL_SETS_PER_NAMESPACE 1}}
+{{$SMALL_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .SMALL_STATEFUL_SETS_PER_NAMESPACE 0}}
+{{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE := DefaultParam .MEDIUM_STATEFUL_SETS_PER_NAMESPACE 0}}
 {{$ENABLE_CHAOSMONKEY := DefaultParam .ENABLE_CHAOSMONKEY false}}
 {{$ENABLE_API_AVAILABILITY_MEASUREMENT := DefaultParam .CL2_ENABLE_API_AVAILABILITY_MEASUREMENT false}}
 {{$RANDOM_SCALE_FACTOR := 0.5}}
@@ -43,9 +42,9 @@
 
 # Jobs are enabled. Reduce the number of small, medium, big deployments per namespace.
 # Ensure non zero or negative after subtraction.
-{{$smallDeploymentsPerNamespace := MaxInt 0 (SubtractInt $smallDeploymentsPerNamespace 1)}}
-{{$mediumDeploymentsPerNamespace := MaxInt 0 (SubtractInt $mediumDeploymentsPerNamespace 1)}}
-{{$bigDeploymentsPerNamespace := MaxInt 0 (SubtractInt $bigDeploymentsPerNamespace 1)}}
+{{$smallDeploymentsPerNamespace := 1 }} #MaxInt 0 (SubtractInt $smallDeploymentsPerNamespace 1)}}
+{{$mediumDeploymentsPerNamespace := 0 }} #MaxInt 0 (SubtractInt $mediumDeploymentsPerNamespace 1)}}
+{{$bigDeploymentsPerNamespace := 0 }} #MaxInt 0 (SubtractInt $bigDeploymentsPerNamespace 1)}}
 
 # Disable big jobs on small clusters.
 {{$bigJobsPerNamespace := IfThenElse $IS_SMALL_CLUSTER 0 1}}
@@ -54,7 +53,7 @@
 # pod-startup-latency or scheduler-throughput. The purpose of it is to avoid
 # problems in small clusters where we wouldn't have enough samples (pods) to
 # measure things accurately.
-{{$MIN_PODS_IN_SMALL_CLUSTERS := 500}}
+{{$MIN_PODS_IN_SMALL_CLUSTERS := 1}}
 
 # BEGIN scheduler-throughput section
 # TODO( https://github.com/kubernetes/perf-tests/issues/1027): Lower the number of "min-pods" once we fix the scheduler throughput measurement.
@@ -115,34 +114,33 @@ chaosMonkey:
     simulatedDowntime: 10m
 {{end}}
 steps:
-- module:
-    path: /modules/measurements.yaml
-    params:
-      action: start
-
-- module:
-    path: modules/network-policy/net-policy-enforcement-latency.yaml
-    params:
-      setup: true
-      run: true
-      podCreation: true
-
-- module:
-    path: modules/services.yaml
-    params:
-      actionName: "Creating"
-      namespaces: {{$namespaces}}
-      smallServicesPerNamespace: {{DivideInt (AddInt $smallDeploymentsPerNamespace 1) 2}}
-      mediumServicesPerNamespace: {{DivideInt (AddInt $mediumDeploymentsPerNamespace 1) 2}}
-      bigServicesPerNamespace: {{DivideInt (AddInt $bigDeploymentsPerNamespace 1) 2}}
-
-- name: Creating PriorityClass for DaemonSets
-  phases:
-  - replicasPerNamespace: 1
-    tuningSet: Sequence
-    objectBundle:
-      - basename: daemonset-priorityclass
-        objectTemplatePath: daemonset-priorityclass.yaml
+#- module:
+#    path: /modules/measurements.yaml
+#    params:
+#      action: start
+#
+#- module:
+#    path: modules/net-policy-enforcement-latency.yaml
+#    params:
+#      setup: true
+#      podCreation: true
+#
+#- module:
+#    path: modules/services.yaml
+#    params:
+#      actionName: "Creating"
+#      namespaces: {{$namespaces}}
+#      smallServicesPerNamespace: {{DivideInt (AddInt $smallDeploymentsPerNamespace 1) 2}}
+#      mediumServicesPerNamespace: {{DivideInt (AddInt $mediumDeploymentsPerNamespace 1) 2}}
+#      bigServicesPerNamespace: {{DivideInt (AddInt $bigDeploymentsPerNamespace 1) 2}}
+#
+#- name: Creating PriorityClass for DaemonSets
+#  phases:
+#  - replicasPerNamespace: 1
+#    tuningSet: Sequence
+#    objectBundle:
+#      - basename: daemonset-priorityclass
+#        objectTemplatePath: daemonset-priorityclass.yaml
 
 # Moved from reconcile-objects.yaml to mitigate https://github.com/kubernetes/kubernetes/issues/96635.
 # TODO(https://github.com/kubernetes/perf-tests/issues/1823): Merge back to reconcile-objects.yaml once the k/k bug is fixed.
@@ -163,10 +161,10 @@ steps:
       namespaces: {{$namespaces}}
       {{if $RATE_LIMIT_POD_CREATION}}
       tuningSet: RandomizedSaturationTimeLimited
-      operationTimeout: 15m
+      operationTimeout: 1m
       {{else}}
       tuningSet: default
-      operationTimeout: {{AddInt $saturationTime 900}}s
+      operationTimeout: 1m # {{AddInt $saturationTime 900}}s
       {{end}}
       testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
       # We rely on the fact that daemonset is using the same image as the 'pod-startup-latency' module.
@@ -194,167 +192,155 @@ steps:
       smallJobSize: {{$SMALL_GROUP_SIZE}}
       smallJobsPerNamespace: 1
 
-{{if not $IS_SMALL_CLUSTER}}
-# BEGIN scheduler throughput
-- module:
-    path: modules/scheduler-throughput.yaml
-    params:
-      action: create
-      namespaces: {{$namespaces}}
-      replicasPerNamespace: 1
-      schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
-      schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
-{{end}}
+#{{if not $IS_SMALL_CLUSTER}}
+## BEGIN scheduler throughput
+#- module:
+#    path: modules/scheduler-throughput.yaml
+#    params:
+#      action: create
+#      namespaces: {{$namespaces}}
+#      replicasPerNamespace: 1
+#      schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
+#      schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
+#{{end}}
+#
+#- module:
+#    path: modules/dns-k8s-hostnames.yaml
+#
+#- module:
+#    path: modules/net-policy-enforcement-latency.yaml
+#    params:
+#      podCreation: false
+#
+#{{if $EXEC_COMMAND}}
+#
+#{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
+#- name: Pausing APIAvailability measurement
+#  measurements:
+#  - Identifier: APIAvailability
+#    Method: APIAvailability
+#    Params:
+#      action: pause
+#{{end}}
+#
+#- name: Exec command
+#  measurements:
+#  - Identifier: ExecCommand
+#    Method: Exec
+#    Params:
+#      timeout: {{$EXEC_TIMEOUT}}
+#      command:
+#      {{range $EXEC_COMMAND}}
+#      - {{.}}
+#      {{end}}
+#
+#{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
+#- name: Unpausing APIAvailability measurement
+#  measurements:
+#  - Identifier: APIAvailability
+#    Method: APIAvailability
+#    Params:
+#      action: unpause
+#{{end}}
+#
+#- name: Sleep
+#  measurements:
+#  - Identifier: WaitAfterExec
+#    Method: Sleep
+#    Params:
+#      duration: {{$SLEEP_AFTER_EXEC_DURATION}}
+#{{end}}
+#
+#{{if not $EXIT_AFTER_EXEC}}
+#
+#{{if not $IS_SMALL_CLUSTER}}
+#- module:
+#    path: modules/scheduler-throughput.yaml
+#    params:
+#      action: delete
+#      namespaces: {{$namespaces}}
+#      replicasPerNamespace: 0
+#      schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
+#      schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
+## END scheduler throughput
+#{{end}}
+#
+#{{if not $IS_SMALL_CLUSTER}}
+## TODO(kubernetes/perf-tests/issues/1024): We shouldn't have a dedicated module for measuring pod-startup-latency.
+#- module:
+#    path: modules/pod-startup-latency.yaml
+#    params:
+#      namespaces: {{$namespaces}}
+#      minPodsInSmallCluster: {{$MIN_PODS_IN_SMALL_CLUSTERS}}
+#      image: {{$latencyPodImage}}
+#{{end}}
+#
+#- module:
+#    path: /modules/reconcile-objects.yaml
+#    params:
+#      actionName: "scale and update"
+#      namespaces: {{$namespaces}}
+#      {{if $RATE_LIMIT_POD_CREATION}}
+#      tuningSet: RandomizedScalingTimeLimited
+#      operationTimeout: 15m
+#      {{else}}
+#      tuningSet: default
+#      operationTimeout: {{AddInt (DivideInt $saturationTime 4) 900}}s
+#      {{end}}
+#      randomScaleFactor: {{$RANDOM_SCALE_FACTOR}}
+#      testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
+#      daemonSetImage: {{$latencyPodImage}}
+#      daemonSetEnv: "after update"
+#      daemonSetReplicas: 1
+#      bigDeploymentSize: {{$BIG_GROUP_SIZE}}
+#      bigDeploymentsPerNamespace: {{$bigDeploymentsPerNamespace}}
+#      mediumDeploymentSize: {{$MEDIUM_GROUP_SIZE}}
+#      mediumDeploymentsPerNamespace: {{$mediumDeploymentsPerNamespace}}
+#      smallDeploymentSize: {{$SMALL_GROUP_SIZE}}
+#      smallDeploymentsPerNamespace: {{$smallDeploymentsPerNamespace}}
+#      smallStatefulSetSize: {{$SMALL_GROUP_SIZE}}
+#      smallStatefulSetsPerNamespace: {{$SMALL_STATEFUL_SETS_PER_NAMESPACE}}
+#      mediumStatefulSetSize: {{$MEDIUM_GROUP_SIZE}}
+#      mediumStatefulSetsPerNamespace: {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
+#      bigJobSize: {{$BIG_GROUP_SIZE}}
+#      bigJobsPerNamespace: {{$bigJobsPerNamespace}}
+#      mediumJobSize: {{$MEDIUM_GROUP_SIZE}}
+#      mediumJobsPerNamespace: 1
+#      smallJobSize: {{$SMALL_GROUP_SIZE}}
+#      smallJobsPerNamespace: 1
 
-- module:
-    path: modules/dns-k8s-hostnames.yaml
-
-{{if $EXEC_COMMAND}}
-
-{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
-- name: Pausing APIAvailability measurement
-  measurements:
-  - Identifier: APIAvailability
-    Method: APIAvailability
-    Params:
-      action: pause
-{{end}}
-
-- name: Exec command
-  measurements:
-  - Identifier: ExecCommand
-    Method: Exec
-    Params:
-      timeout: {{$EXEC_TIMEOUT}}
-      command:
-      {{range $EXEC_COMMAND}}
-      - {{.}}
-      {{end}}
-
-{{if $ENABLE_API_AVAILABILITY_MEASUREMENT}}
-- name: Unpausing APIAvailability measurement
-  measurements:
-  - Identifier: APIAvailability
-    Method: APIAvailability
-    Params:
-      action: unpause
-{{end}}
-
-- name: Sleep
-  measurements:
-  - Identifier: WaitAfterExec
-    Method: Sleep
-    Params:
-      duration: {{$SLEEP_AFTER_EXEC_DURATION}}
-{{end}}
-
-{{if not $EXIT_AFTER_EXEC}}
-
-{{if not $IS_SMALL_CLUSTER}}
-- module:
-    path: modules/scheduler-throughput.yaml
-    params:
-      action: delete
-      namespaces: {{$namespaces}}
-      replicasPerNamespace: 0
-      schedulerThroughputNamespaces: {{$schedulerThroughputNamespaces}}
-      schedulerThroughputPodsPerDeployment: {{$schedulerThroughputPodsPerDeployment}}
-# END scheduler throughput
-{{end}}
-
-{{if not $IS_SMALL_CLUSTER}}
-# TODO(kubernetes/perf-tests/issues/1024): We shouldn't have a dedicated module for measuring pod-startup-latency.
-- module:
-    path: modules/pod-startup-latency.yaml
-    params:
-      namespaces: {{$namespaces}}
-      minPodsInSmallCluster: {{$MIN_PODS_IN_SMALL_CLUSTERS}}
-      image: {{$latencyPodImage}}
-{{end}}
-
-- module:
-    path: modules/network-policy/net-policy-metrics.yaml
-    params:
-      action: gather
-
-- module:
-    path: modules/network-policy/net-policy-enforcement-latency.yaml
-    params:
-      complete: true
-      podCreation: true
-
-- module:
-    path: modules/network-policy/net-policy-enforcement-latency.yaml
-    params:
-      run: true
-      podCreation: false
-
-- module:
-    path: /modules/reconcile-objects.yaml
-    params:
-      actionName: "scale and update"
-      namespaces: {{$namespaces}}
-      {{if $RATE_LIMIT_POD_CREATION}}
-      tuningSet: RandomizedScalingTimeLimited
-      operationTimeout: 15m
-      {{else}}
-      tuningSet: default
-      operationTimeout: {{AddInt (DivideInt $saturationTime 4) 900}}s
-      {{end}}
-      randomScaleFactor: {{$RANDOM_SCALE_FACTOR}}
-      testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
-      daemonSetImage: {{$latencyPodImage}}
-      daemonSetEnv: "after update"
-      daemonSetReplicas: 1
-      bigDeploymentSize: {{$BIG_GROUP_SIZE}}
-      bigDeploymentsPerNamespace: {{$bigDeploymentsPerNamespace}}
-      mediumDeploymentSize: {{$MEDIUM_GROUP_SIZE}}
-      mediumDeploymentsPerNamespace: {{$mediumDeploymentsPerNamespace}}
-      smallDeploymentSize: {{$SMALL_GROUP_SIZE}}
-      smallDeploymentsPerNamespace: {{$smallDeploymentsPerNamespace}}
-      smallStatefulSetSize: {{$SMALL_GROUP_SIZE}}
-      smallStatefulSetsPerNamespace: {{$SMALL_STATEFUL_SETS_PER_NAMESPACE}}
-      mediumStatefulSetSize: {{$MEDIUM_GROUP_SIZE}}
-      mediumStatefulSetsPerNamespace: {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
-      bigJobSize: {{$BIG_GROUP_SIZE}}
-      bigJobsPerNamespace: {{$bigJobsPerNamespace}}
-      mediumJobSize: {{$MEDIUM_GROUP_SIZE}}
-      mediumJobsPerNamespace: 1
-      smallJobSize: {{$SMALL_GROUP_SIZE}}
-      smallJobsPerNamespace: 1
-
-- module:
-    path: /modules/reconcile-objects.yaml
-    params:
-      actionName: "delete"
-      namespaces: {{$namespaces}}
-      {{if $RATE_LIMIT_POD_CREATION}}
-      tuningSet: RandomizedDeletionTimeLimited
-      operationTimeout: 15m
-      {{else}}
-      tuningSet: default
-      operationTimeout: {{AddInt $deletionTime 900}}s
-      {{end}}
-      testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
-      daemonSetReplicas: 0
-      bigDeploymentSize: {{$BIG_GROUP_SIZE}}
-      bigDeploymentsPerNamespace: 0
-      mediumDeploymentSize: {{$MEDIUM_GROUP_SIZE}}
-      mediumDeploymentsPerNamespace: 0
-      smallDeploymentSize: {{$SMALL_GROUP_SIZE}}
-      smallDeploymentsPerNamespace: 0
-      smallStatefulSetSize: {{$SMALL_GROUP_SIZE}}
-      smallStatefulSetsPerNamespace: 0
-      mediumStatefulSetSize: {{$MEDIUM_GROUP_SIZE}}
-      mediumStatefulSetsPerNamespace: 0
-      bigJobSize: {{$BIG_GROUP_SIZE}}
-      bigJobsPerNamespace: 0
-      mediumJobSize: {{$MEDIUM_GROUP_SIZE}}
-      mediumJobsPerNamespace: 0
-      smallJobSize: {{$SMALL_GROUP_SIZE}}
-      smallJobsPerNamespace: 0
-      pvSmallStatefulSetSize: {{$SMALL_STATEFUL_SETS_PER_NAMESPACE}}
-      pvMediumStatefulSetSize: {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
+#- module:
+#    path: /modules/reconcile-objects.yaml
+#    params:
+#      actionName: "delete"
+#      namespaces: {{$namespaces}}
+#      {{if $RATE_LIMIT_POD_CREATION}}
+#      tuningSet: RandomizedDeletionTimeLimited
+#      operationTimeout: 1m
+#      {{else}}
+#      tuningSet: default
+#      operationTimeout: 1m #{{AddInt $deletionTime 900}}s
+#      {{end}}
+#      testMaxReplicaFactor: {{$RANDOM_SCALE_FACTOR}}
+#      daemonSetReplicas: 0
+#      bigDeploymentSize: {{$BIG_GROUP_SIZE}}
+#      bigDeploymentsPerNamespace: 0
+#      mediumDeploymentSize: {{$MEDIUM_GROUP_SIZE}}
+#      mediumDeploymentsPerNamespace: 0
+#      smallDeploymentSize: {{$SMALL_GROUP_SIZE}}
+#      smallDeploymentsPerNamespace: 0
+#      smallStatefulSetSize: {{$SMALL_GROUP_SIZE}}
+#      smallStatefulSetsPerNamespace: 0
+#      mediumStatefulSetSize: {{$MEDIUM_GROUP_SIZE}}
+#      mediumStatefulSetsPerNamespace: 0
+#      bigJobSize: {{$BIG_GROUP_SIZE}}
+#      bigJobsPerNamespace: 0
+#      mediumJobSize: {{$MEDIUM_GROUP_SIZE}}
+#      mediumJobsPerNamespace: 0
+#      smallJobSize: {{$SMALL_GROUP_SIZE}}
+#      smallJobsPerNamespace: 0
+#      pvSmallStatefulSetSize: {{$SMALL_STATEFUL_SETS_PER_NAMESPACE}}
+#      pvMediumStatefulSetSize: {{$MEDIUM_STATEFUL_SETS_PER_NAMESPACE}}
 
 - module:
     path: /modules/configmaps-secrets.yaml
@@ -366,25 +352,25 @@ steps:
       mediumDeploymentsPerNamespace: 0
       smallDeploymentsPerNamespace: 0
 
-- name: Deleting PriorityClass for DaemonSets
-  phases:
-    - replicasPerNamespace: 0
-      tuningSet: Sequence
-      objectBundle:
-        - basename: daemonset-priorityclass
-          objectTemplatePath: daemonset-priorityclass.yaml
-
-- module:
-    path: modules/services.yaml
-    params:
-      actionName: "Deleting"
-      namespaces: {{$namespaces}}
-      smallServicesPerNamespace: 0
-      mediumServicesPerNamespace: 0
-      bigServicesPerNamespace: 0
-{{end}} # not EXIT_AFTER_EXEC
-
-- module:
-    path: /modules/measurements.yaml
-    params:
-      action: gather
+#- name: Deleting PriorityClass for DaemonSets
+#  phases:
+#    - replicasPerNamespace: 0
+#      tuningSet: Sequence
+#      objectBundle:
+#        - basename: daemonset-priorityclass
+#          objectTemplatePath: daemonset-priorityclass.yaml
+#
+#- module:
+#    path: modules/services.yaml
+#    params:
+#      actionName: "Deleting"
+#      namespaces: {{$namespaces}}
+#      smallServicesPerNamespace: 0
+#      mediumServicesPerNamespace: 0
+#      bigServicesPerNamespace: 0
+#{{end}} # not EXIT_AFTER_EXEC
+#
+#- module:
+#    path: /modules/measurements.yaml
+#    params:
+#      action: gather

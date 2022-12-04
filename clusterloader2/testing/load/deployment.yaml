@@ -7,6 +7,10 @@
 # Guard the new DNS tests. Remove it once it's confirmed that it works on a subset of tests.
 {{$USE_ADVANCED_DNSTEST := DefaultParam .CL2_USE_ADVANCED_DNSTEST false}}
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
+  
+{{$EnableNetworkPolicyEnforcementLatencyTest := DefaultParam .EnableNetworkPolicyEnforcementLatencyTest false}}
+{{$TargetLabelKey := DefaultParam .TargetLabelKey "net-pol-test"}}
+{{$TargetLabelValue := DefaultParam .TargetLabelValue "enforcement-latency"}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -28,6 +32,10 @@ spec:
         svc: {{.SvcName}}-{{.Index}}
 {{if and .EnableDNSTests $USE_ADVANCED_DNSTEST}}
         dns-test: dnsperfgo
+{{else}}
+  {{if .EnableNetworkPolicyEnforcementLatencyTest}}
+        {{$TargetLabelKey}}: {{$TargetLabelValue}}
+  {{end}}
 {{end}}
     spec:
       hostNetwork: {{$HostNetworkMode}}
@@ -55,8 +63,17 @@ spec:
           ./dnsperfgo -duration 60s -idle-duration 10s -inputfile /var/configmap/all-queries -qps {{$dnsQPSPerClient}};
         name: {{.Name}}-dnsperf
 {{else}}
+  {{if .EnableNetworkPolicyEnforcementLatencyTest}}
+      - image: nginx
+        name: nginx-server
+#      - image: us-docker.pkg.dev/google-samples/containers/gke/hello-app:1.0
+#        name: hello-app-server
+        ports:
+        - containerPort: 80
+  {{else}}
       - image: k8s.gcr.io/pause:3.1
         name: {{.Name}}
+  {{end}}
 {{end}}
         resources:
           requests:
