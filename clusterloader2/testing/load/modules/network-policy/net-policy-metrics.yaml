@@ -99,6 +99,10 @@ steps:
           query: histogram_quantile(0.50, sum(cilium_triggers_policy_update_call_duration_seconds_bucket{type="latency"}) by (le))
         - name: Latency of policy update trigger - Perc99
           query: histogram_quantile(0.99, sum(cilium_triggers_policy_update_call_duration_seconds_bucket{type="latency"}) by (le))
+        - name: Duration of policy update trigger - Perc50
+          query: histogram_quantile(0.50, sum(cilium_triggers_policy_update_call_duration_seconds_bucket{type="duration"}) by (le))
+        - name: Duration of policy update trigger - Perc99
+          query: histogram_quantile(0.99, sum(cilium_triggers_policy_update_call_duration_seconds_bucket{type="duration"}) by (le))
         - name: Failed endpoint regenerations
           query: sum(cilium_endpoint_regenerations_total{outcome="fail"})
   {{end}}
