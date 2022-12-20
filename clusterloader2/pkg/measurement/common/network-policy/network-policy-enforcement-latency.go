@@ -464,8 +464,8 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 		}
 	}
 
-	// Add 5 minute buffer.
-	totalWaitTime := expectedFinishTime.Add(5 * time.Minute)
+	// Add 1 minute buffer before completing.
+	totalWaitTime := expectedFinishTime.Add(1 * time.Minute)
 	time.Sleep(time.Until(totalWaitTime))
 }
 
