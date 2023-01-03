@@ -84,11 +84,11 @@ func CreateConfig() *config {
 	config := config{}
 
 	flag.StringVar(&config.testClientNamespace, "testClientNamespace", "", "The namespace of client pods")
-	flag.StringVar(&config.targetLabelSelector, "targetLabelSelector", "", "The label selector for target pods")
-	flag.StringVar(&config.targetNamespace, "targetNamespace", "", "The namespace of target pods")
-	flag.IntVar(&config.targetPort, "targetPort", 0, "The port for the targeted pods")
+	flag.StringVar(&config.targetLabelSelector, "targetLabelSelector", "", "The label selector of target pods to send requests to")
+	flag.StringVar(&config.targetNamespace, "targetNamespace", "", "The namespace of target pods to send requests to")
+	flag.IntVar(&config.targetPort, "targetPort", 0, "The port number of target pods to send requests to")
 	flag.IntVar(&config.expectedTargets, "expectedTargets", 100, "The expected number of target pods")
-	flag.StringVar(&config.allowPolicyName, "allowPolicyName", "", "The name of the policy that allows traffic to target pods.")
+	flag.StringVar(&config.allowPolicyName, "allowPolicyName", "", "The name of the egress policy that allows traffic to target pods")
 	flag.IntVar(&config.metricsPort, "metricsPort", 9154, "The port number where Prometheus metrics are exposed")
 	flag.BoolVar(&config.testPodCreation, "testPodCreation", false, "Specifies whether to test latency for pod creation")
 	flag.IntVar(&config.workerCount, "workerCount", 10, "The number of workers to process the events in the workerQueue")
@@ -177,13 +177,13 @@ func (c *TestClient) verifyConfig() error {
 	} else {
 		if len(c.Config.allowPolicyName) == 0 {
 			fmt.Println("allowPolicyName is not specified for policy creation test")
-			c.Config.testTypeName = "service-reachability"
+			c.Config.testTypeName = "pod-creation-enforcement-latency"
 		} else {
-			c.Config.testTypeName = "policy-creation"
+			c.Config.testTypeName = "policy-creation-enforcement-latency"
 		}
 	}
 
-	fmt.Printf("Connectivity test client mode: %q", c.Config.testTypeName)
+	fmt.Printf("Connectivity test client mode: %q\n", c.Config.testTypeName)
 
 	// Log all test client config flags.
 	fmt.Println("Connectivity test client parameters:")
@@ -201,26 +201,22 @@ func (c *TestClient) verifyConfig() error {
 }
 
 func (c *TestClient) startMeasureNetPolicyCreation() error {
-	log.Println("Starting to measure service reachability latency after allow policy creation")
-
-	serviceList, err := c.targetServiceList()
+	log.Println("Starting to measure network policy enforcement latency after network policy creation")
+	podList, err := c.targetPodList()
 	if err != nil {
-		//log.Printf("Failed to list services: %v\n", err)
-		return fmt.Errorf("failed to list services, error: %v\n", err)
+		return fmt.Errorf("failed to get the pod list, error: %v\n", err)
 	}
-
-	log.Printf("%d services listed\n", len(serviceList))
-	metrics.TargetServicesCount.Add(float64(len(serviceList)))
+	log.Printf("%d pods listed\n", len(podList))
 
 	wg := sync.WaitGroup{}
 	c.policyCreatedTime = &timeWithLock{lock: sync.RWMutex{}}
 
-	// Keep sending requests to all services until all of them are reached.
-	for _, service := range serviceList {
+	// Keep sending requests to all pods until all of them are reached.
+	for _, pod := range podList {
 		target := &targetSpec{
-			ip:        service.Spec.ClusterIP,
-			name:      service.GetName(),
-			namespace: service.GetNamespace(),
+			ip:        pod.Status.PodIP,
+			name:      pod.GetName(),
+			namespace: pod.GetNamespace(),
 		}
 
 		wg.Add(1)
@@ -234,17 +230,17 @@ func (c *TestClient) startMeasureNetPolicyCreation() error {
 	return nil
 }
 
-func (c *TestClient) targetServiceList() ([]corev1.Service, error) {
-	serviceList, err := c.k8sClient.CoreV1().Services(c.Config.targetNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: c.Config.targetLabelSelector, Limit: int64(c.Config.expectedTargets)})
+func (c *TestClient) targetPodList() ([]corev1.Pod, error) {
+	podList, err := c.k8sClient.CoreV1().Pods(c.Config.targetNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: c.Config.targetLabelSelector, Limit: int64(c.Config.expectedTargets)})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list services for selector %q in namespace %q: %v", c.Config.targetLabelSelector, c.Config.targetNamespace, err)
+		return nil, fmt.Errorf("failed to list pods for selector %q in namespace %q: %v", c.Config.targetLabelSelector, c.Config.targetNamespace, err)
 	}
 
-	if len(serviceList.Items) == 0 {
-		return nil, fmt.Errorf("no services listed for selector %q in namespace %q: %v", c.Config.targetLabelSelector, c.Config.targetNamespace, err)
+	if len(podList.Items) == 0 {
+		return nil, fmt.Errorf("no pods listed for selector %q in namespace %q: %v", c.Config.targetLabelSelector, c.Config.targetNamespace, err)
 	}
 
-	return serviceList.Items, nil
+	return podList.Items, nil
 }
 
 func (c *TestClient) startMeasurePodCreation() error {
@@ -350,17 +346,17 @@ func (c *TestClient) processNextPodCreationEvent() {
 		podCreationTime := pod.GetCreationTimestamp().Time
 
 		// Don't try to reach the pod again.
-		maxTargetsReached := false
+		haveMaxTargets := false
 		c.seenPods.lock.Lock()
 		_, ok = c.seenPods.mp[podName]
 		if !ok {
 			c.seenPods.mp[podName] = startTime
-			maxTargetsReached = len(c.seenPods.mp) > c.Config.expectedTargets
+			haveMaxTargets = len(c.seenPods.mp) > c.Config.expectedTargets
 		}
 		c.seenPods.lock.Unlock()
 
 		// Process only up to the expected number of pods.
-		if maxTargetsReached {
+		if haveMaxTargets {
 			c.stopInformerChan()
 			return
 		}
@@ -372,7 +368,6 @@ func (c *TestClient) processNextPodCreationEvent() {
 				name:      podName,
 				namespace: pod.GetNamespace(),
 				startTime: startTime,
-				//startTime: podCreationTime,
 			}
 			go c.recordFirstSuccessfulRequest(target, true)
 
@@ -384,6 +379,11 @@ func (c *TestClient) processNextPodCreationEvent() {
 }
 
 func (c *TestClient) recordFirstSuccessfulRequest(target *targetSpec, forPodCreation bool) {
+	if target == nil || len(target.ip) == 0 {
+		log.Printf("Skipping target for policy enforcement latency (podCreation=%t), because the target does not have an IP address assigned. Target: %v", forPodCreation, target)
+		return
+	}
+
 	request := fmt.Sprintf("curl --connect-timeout 1 %s:%d", target.ip, c.Config.targetPort)
 	command := []string{"sh", "-c", "-x", request}
 	log.Printf("Sending request %q", request)
@@ -391,7 +391,6 @@ func (c *TestClient) recordFirstSuccessfulRequest(target *targetSpec, forPodCrea
 	for {
 		select {
 		case <-c.MainStopChan:
-			c.stopInformerChan()
 			return
 		default:
 		}
@@ -409,9 +408,6 @@ func (c *TestClient) recordFirstSuccessfulRequest(target *targetSpec, forPodCrea
 }
 
 func (c *TestClient) reportReachedTimeForPodCreation(target *targetSpec, reachedTime time.Time) {
-	//podCreationTime := pod.GetCreationTimestamp().Time
-	//latency := reachedTime.Sub(podCreationTime)
-
 	latency := reachedTime.Sub(target.startTime)
 
 	// Generate Prometheus metrics for latency on policy creation.
@@ -420,8 +416,6 @@ func (c *TestClient) reportReachedTimeForPodCreation(target *targetSpec, reached
 }
 
 func (c *TestClient) reportReachedTimeForPolicyCreation(target *targetSpec, reachedTime time.Time) {
-	// Generate Prometheus metrics for service reachability.
-	metrics.TargetServicesReachedCount.Add(1)
 	if len(c.Config.allowPolicyName) == 0 {
 		return
 	}
@@ -434,7 +428,7 @@ func (c *TestClient) reportReachedTimeForPolicyCreation(target *targetSpec, reac
 	if c.policyCreatedTime.time == nil {
 		networkPolicy, err := c.k8sClient.NetworkingV1().NetworkPolicies(c.Config.testClientNamespace).Get(context.TODO(), c.Config.allowPolicyName, metav1.GetOptions{})
 		if err != nil {
-			log.Printf("Failed to get network policies for service %q in namespace %q: %v", target.name, c.Config.testClientNamespace, err)
+			log.Printf("Failed to get network policies for pod %q in namespace %q with IP %q: %v", target.name, c.Config.testClientNamespace, target.ip, err)
 			failed = true
 		}
 
@@ -453,7 +447,7 @@ func (c *TestClient) reportReachedTimeForPolicyCreation(target *targetSpec, reac
 
 	// Generate Prometheus metrics for latency on policy creation.
 	metrics.PolicyEnforceLatencyPolicyCreation.Observe(latency.Seconds())
-	log.Printf("Service %q in namespace %q reached %v after policy creation", target.name, target.namespace, latency)
+	log.Printf("Pod %q in namespace %q with IP %q reached %v after policy creation", target.name, target.namespace, target.ip, latency)
 }
 
 // enterIdleState is used for preventing the pod from completing and then

@@ -61,18 +61,6 @@ var (
 			Buckets: latencyBuckets,
 		},
 	)
-	TargetServicesCount = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "target_service_count",
-			Help: "The number of services that the test client will try to connect to",
-		},
-	)
-	TargetServicesReachedCount = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "target_service_reached_count",
-			Help: "The number of services that the test client successfully connected to",
-		},
-	)
 )
 
 var register sync.Once
@@ -84,8 +72,6 @@ func RegisterMetrics(podCreation bool) {
 			prometheus.MustRegister(PodIpAddressAssignedLatency)
 		} else {
 			prometheus.MustRegister(PolicyEnforceLatencyPolicyCreation)
-			prometheus.MustRegister(TargetServicesCount)
-			prometheus.MustRegister(TargetServicesReachedCount)
 		}
 	})
 }
