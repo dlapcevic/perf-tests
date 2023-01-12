@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Kubernetes Authors.
+Copyright 2023 The Kubernetes Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -23,8 +23,8 @@ import (
 )
 
 func main() {
-	log.Println("Starting in-cluster network connectivity test client")
-	defer log.Println("Closing in-cluster network connectivity test client")
+	log.Println("Starting network policy test client")
+	defer log.Println("Closing network policy test client")
 
 	config := client.CreateConfig()
 	testClient := client.NewTestClient(config, make(chan os.Signal, 1))

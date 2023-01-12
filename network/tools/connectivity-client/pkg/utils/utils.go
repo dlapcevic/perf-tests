@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Kubernetes Authors.
+Copyright 2023 The Kubernetes Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -25,9 +25,12 @@ import (
 )
 
 const (
-	NameIndex = "name"
+	NameIndex           = "name"
+	MaximumRetryBackoff = 10 * time.Minute
 )
 
+// NewK8sClient returns a K8s client for the K8s cluster where this application
+// runs inside a pod.
 func NewK8sClient() (*clientset.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -36,11 +39,14 @@ func NewK8sClient() (*clientset.Clientset, error) {
 	return clientset.NewForConfig(config)
 }
 
-func Retry(attempts int, sleep time.Duration, fn func() error) error {
+// Retry runs a function until it succeeds, with specified number of attempts
+// and base for exponential backoff.
+func Retry(attempts int, backoff time.Duration, fn func() error) error {
 	if err := fn(); err != nil {
-		if attempts--; attempts > 0 {
-			time.Sleep(sleep)
-			return Retry(attempts, 2*sleep, fn)
+		newBackoff := backoff * 2
+		if attempts > 1 && newBackoff < MaximumRetryBackoff {
+			time.Sleep(backoff)
+			return Retry(attempts-1, newBackoff, fn)
 		}
 		return err
 	}
@@ -48,6 +54,7 @@ func Retry(attempts int, sleep time.Duration, fn func() error) error {
 	return nil
 }
 
+// InformerSynced verifies that the provided sync function is successful.
 func InformerSynced(syncFunc func() bool, informerName string) error {
 	yes := syncFunc()
 	if yes {
@@ -66,6 +73,9 @@ func MetaNameIndexFunc(obj interface{}) ([]string, error) {
 	return []string{m.GetName()}, nil
 }
 
+// RunCommand executes a command based on the provided string slice. The command
+// is constructed by taking the first element as the command name, and then all
+// the subsequent elements as arguments to that command.
 func RunCommand(cmd []string) (string, error) {
 	var stdout, stderr bytes.Buffer
 	c := exec.Command(cmd[0], cmd[1:]...)

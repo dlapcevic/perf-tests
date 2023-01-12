@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Kubernetes Authors.
+Copyright 2023 The Kubernetes Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -57,7 +57,7 @@ var (
 	PodIpAddressAssignedLatency = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    "pod_ip_address_assigned_latency_seconds",
-			Help:    "Latency (in seconds) for IP address to be assigned to a pod, after pod's creation",
+			Help:    "Latency (in seconds) for IP address to be assigned to a pod, after pod creation",
 			Buckets: latencyBuckets,
 		},
 	)
@@ -65,6 +65,8 @@ var (
 
 var register sync.Once
 
+// RegisterMetrics registers Prometheus metrics to be collected, based on the
+// test client configuration.
 func RegisterMetrics(podCreation bool) {
 	register.Do(func() {
 		if podCreation {
@@ -76,6 +78,8 @@ func RegisterMetrics(podCreation bool) {
 	})
 }
 
+// StartMetricsServer runs a Prometheus HTTP server that exposes metrics on the
+// specified port.
 func StartMetricsServer(listenAddr string) *http.Server {
 	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/healthz", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

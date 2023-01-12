@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Kubernetes Authors.
+Copyright 2023 The Kubernetes Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -45,24 +45,33 @@ type TestClient struct {
 	policyCreatedTime *timeWithLock
 
 	// Fields used by pod creation test.
-	informerStopChan chan struct{}
-	podInformer      cache.SharedIndexInformer
-	workQueue        *workqueue.Type
-	seenPods         *timeMapWithLock
+	informerStopChan     chan struct{}
+	podInformer          cache.SharedIndexInformer
+	podCreationWorkQueue *workqueue.Type
+	seenPods             *timeMapWithLock
 }
 
 type config struct {
+	// The namespace of test client pods.
 	testClientNamespace string
+	// The label selector of target pods to send requests to.
 	targetLabelSelector string
-	targetNamespace     string
-	targetPort          int
-	expectedTargets     int
-	allowPolicyName     string
-	testTypeName        string
-	metricsPort         int
-
+	// The namespace of target pods to send requests to.
+	targetNamespace string
+	// The port number of target pods to send requests to.
+	targetPort int
+	// The expected number of target pods to send requests to.
+	expectedTargets int
+	// The name of the egress policy that allows traffic from test client pods to
+	// target pods.
+	allowPolicyName string
+	// The port number where Prometheus metrics are exposed.
+	metricsPort int
+	// Specifies whether to test latency for pod creation
 	testPodCreation bool
-	workerCount     int
+	// The number of workers to process the pod watch events in the workerQueue.
+	workerCount  int
+	testTypeName string
 }
 
 type timeMapWithLock struct {
@@ -80,23 +89,26 @@ type targetSpec struct {
 	startTime           time.Time
 }
 
+// CreateConfig creates a configuration object for test client based on the
+// command flags.
 func CreateConfig() *config {
 	config := config{}
 
-	flag.StringVar(&config.testClientNamespace, "testClientNamespace", "", "The namespace of client pods")
+	flag.StringVar(&config.testClientNamespace, "testClientNamespace", "", "The namespace of test client pods")
 	flag.StringVar(&config.targetLabelSelector, "targetLabelSelector", "", "The label selector of target pods to send requests to")
 	flag.StringVar(&config.targetNamespace, "targetNamespace", "", "The namespace of target pods to send requests to")
 	flag.IntVar(&config.targetPort, "targetPort", 0, "The port number of target pods to send requests to")
-	flag.IntVar(&config.expectedTargets, "expectedTargets", 100, "The expected number of target pods")
-	flag.StringVar(&config.allowPolicyName, "allowPolicyName", "", "The name of the egress policy that allows traffic to target pods")
+	flag.IntVar(&config.expectedTargets, "expectedTargets", 100, "The expected number of target pods to send requests to")
+	flag.StringVar(&config.allowPolicyName, "allowPolicyName", "", "The name of the egress policy that allows traffic from test client pods to target pods")
 	flag.IntVar(&config.metricsPort, "metricsPort", 9154, "The port number where Prometheus metrics are exposed")
 	flag.BoolVar(&config.testPodCreation, "testPodCreation", false, "Specifies whether to test latency for pod creation")
-	flag.IntVar(&config.workerCount, "workerCount", 10, "The number of workers to process the events in the workerQueue")
+	flag.IntVar(&config.workerCount, "workerCount", 10, "The number of workers to process the pod watch events in the workerQueue")
 	flag.Parse()
 
 	return &config
 }
 
+// NewTestClient creates a new test client for the provided config.
 func NewTestClient(config *config, mainStopChan chan os.Signal) *TestClient {
 	return &TestClient{
 		Config:       config,
@@ -104,6 +116,8 @@ func NewTestClient(config *config, mainStopChan chan os.Signal) *TestClient {
 	}
 }
 
+// Run verifies the test client configuration, starts the metrics server, and
+// runs the network policy enforcement latency test based on the configuration.
 func (c *TestClient) Run() {
 	if err := c.initialize(); err != nil {
 		log.Printf("Failed to initialize: %v", err)
@@ -134,6 +148,8 @@ func (c *TestClient) Run() {
 	c.enterIdleState()
 }
 
+// initialize verifies the config and instantiates the objects required for the
+// test to run.
 func (c *TestClient) initialize() error {
 	log.Printf("Starting connectivity test client! Time: %v", time.Now())
 	if err := c.verifyConfig(); err != nil {
@@ -146,11 +162,13 @@ func (c *TestClient) initialize() error {
 	}
 
 	c.k8sClient = k8sClient
-	c.workQueue = workqueue.New()
+	c.podCreationWorkQueue = workqueue.New()
 
 	return nil
 }
 
+// verifyConfig checks that all the mandatory test client config fields are
+// populated accordingly.
 func (c *TestClient) verifyConfig() error {
 	if len(c.Config.testClientNamespace) == 0 {
 		return fmt.Errorf("testClientNamespace parameter is not specified")
@@ -168,19 +186,17 @@ func (c *TestClient) verifyConfig() error {
 		return fmt.Errorf("targetPort parameter is not specified")
 	}
 
-	if c.Config.workerCount < 1 {
-		return fmt.Errorf("less than 1 worker queue specified")
+	if c.Config.workerCount < 1 || c.Config.workerCount > 100 {
+		return fmt.Errorf("workerCount value must be between 1 and 100, but it is %v", c.Config.workerCount)
 	}
 
 	if c.Config.testPodCreation {
-		c.Config.testTypeName = "pod-creation"
+		c.Config.testTypeName = "pod-creation-enforcement-latency"
 	} else {
 		if len(c.Config.allowPolicyName) == 0 {
-			fmt.Println("allowPolicyName is not specified for policy creation test")
-			c.Config.testTypeName = "pod-creation-enforcement-latency"
-		} else {
-			c.Config.testTypeName = "policy-creation-enforcement-latency"
+			return fmt.Errorf("allowPolicyName is not specified for policy creation test")
 		}
+		c.Config.testTypeName = "policy-creation-enforcement-latency"
 	}
 
 	fmt.Printf("Connectivity test client mode: %q\n", c.Config.testTypeName)
@@ -200,6 +216,8 @@ func (c *TestClient) verifyConfig() error {
 	return nil
 }
 
+// startMeasureNetPolicyCreation runs the network policy enforcement latency
+// test for network policy creation.
 func (c *TestClient) startMeasureNetPolicyCreation() error {
 	log.Println("Starting to measure network policy enforcement latency after network policy creation")
 	podList, err := c.targetPodList()
@@ -230,6 +248,8 @@ func (c *TestClient) startMeasureNetPolicyCreation() error {
 	return nil
 }
 
+// targetPodList returns a list of pods based on the test client config, for
+// target namespace and target label selector, with a limit to the listed pods.
 func (c *TestClient) targetPodList() ([]corev1.Pod, error) {
 	podList, err := c.k8sClient.CoreV1().Pods(c.Config.targetNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: c.Config.targetLabelSelector, Limit: int64(c.Config.expectedTargets)})
 	if err != nil {
@@ -243,6 +263,8 @@ func (c *TestClient) targetPodList() ([]corev1.Pod, error) {
 	return podList.Items, nil
 }
 
+// startMeasurePodCreation runs the network policy enforcement latency test for
+// pod creation.
 func (c *TestClient) startMeasurePodCreation() error {
 	log.Println("Starting to measure pod creation reachability latency")
 	c.informerStopChan = make(chan struct{})
@@ -254,10 +276,13 @@ func (c *TestClient) startMeasurePodCreation() error {
 		go c.processPodCreationEvents()
 	}
 
-	return c.createPodWatcher()
+	return c.createPodInformer()
 }
 
-func (c *TestClient) createPodWatcher() error {
+// createPodInformer creates a pod informer based on the test client config, for
+// target namespace and target label selector, and enqueues the events to the
+// pod creation work queue.
+func (c *TestClient) createPodInformer() error {
 	log.Printf("Creating PodWatcher for namespace %q, labelSelector %q\n", c.Config.targetNamespace, c.Config.targetLabelSelector)
 
 	listWatch := &cache.ListWatch{
@@ -278,7 +303,7 @@ func (c *TestClient) createPodWatcher() error {
 			return
 		}
 
-		c.workQueue.Add(pod.GetName())
+		c.podCreationWorkQueue.Add(pod.GetName())
 	}
 
 	informer := cache.NewSharedIndexInformer(listWatch, nil, 0, cache.Indexers{utils.NameIndex: utils.MetaNameIndexFunc})
@@ -301,25 +326,31 @@ func (c *TestClient) createPodWatcher() error {
 	return err
 }
 
+// processPodCreationEvents is run by each worker to process the incoming pod
+// watch events, by sending traffic to the pods that have IP address assigned,
+// until a first successful response.
 func (c *TestClient) processPodCreationEvents() {
 	wait.Until(c.processNextPodCreationEvent, 0, c.informerStopChan)
 	log.Println("processPodCreationEvents() goroutine quitting")
 }
 
+// processNextPodCreationEvent processes the next pod watch event in the work
+// queue, by sending traffic to the pods that have IP address assigned, until
+// the first successful response.
 func (c *TestClient) processNextPodCreationEvent() {
-	item, quit := c.workQueue.Get()
+	item, quit := c.podCreationWorkQueue.Get()
 	if quit {
 		close(c.informerStopChan)
-		c.workQueue.ShutDown()
+		c.podCreationWorkQueue.ShutDown()
 		return
 	}
-	defer c.workQueue.Done(item)
+	defer c.podCreationWorkQueue.Done(item)
 
 	startTime := time.Now()
 
 	key, ok := item.(string)
 	if !ok {
-		log.Printf("Failed to convert workqueue item (%T) to string key", item)
+		log.Printf("Failed to convert workqueue item of type %T to string key", item)
 		return
 	}
 
@@ -378,9 +409,14 @@ func (c *TestClient) processNextPodCreationEvent() {
 	}
 }
 
+// recordFirstSuccessfulRequest sends curl requests continuously to the provided
+// target IP and target port from the test client config, at 1 second intervals,
+// until the first successful response. It records the latency between the
+// provided start time in the targetSpec, and  the time of the first successful
+// response.
 func (c *TestClient) recordFirstSuccessfulRequest(target *targetSpec, forPodCreation bool) {
 	if target == nil || len(target.ip) == 0 {
-		log.Printf("Skipping target for policy enforcement latency (podCreation=%t), because the target does not have an IP address assigned. Target: %v", forPodCreation, target)
+		log.Printf("Skipping a target for policy enforcement latency (podCreation=%t), because the target does not have an IP address assigned. Target: %v", forPodCreation, target)
 		return
 	}
 
@@ -407,6 +443,8 @@ func (c *TestClient) recordFirstSuccessfulRequest(target *targetSpec, forPodCrea
 	}
 }
 
+// reportReachedTimeForPodCreation records the network policy enforcement
+// latency for pod creation.
 func (c *TestClient) reportReachedTimeForPodCreation(target *targetSpec, reachedTime time.Time) {
 	latency := reachedTime.Sub(target.startTime)
 
@@ -415,6 +453,8 @@ func (c *TestClient) reportReachedTimeForPodCreation(target *targetSpec, reached
 	log.Printf("Pod %q in namespace %q reached %v after pod IP was assigned", target.name, target.namespace, latency)
 }
 
+// reportReachedTimeForPolicyCreation records the network policy enforcement
+// latency for network policy creation.
 func (c *TestClient) reportReachedTimeForPolicyCreation(target *targetSpec, reachedTime time.Time) {
 	if len(c.Config.allowPolicyName) == 0 {
 		return
@@ -450,10 +490,9 @@ func (c *TestClient) reportReachedTimeForPolicyCreation(target *targetSpec, reac
 	log.Printf("Pod %q in namespace %q with IP %q reached %v after policy creation", target.name, target.namespace, target.ip, latency)
 }
 
-// enterIdleState is used for preventing the pod from completing and then
-// getting restarted. The test client enters the idle state as soon as it has
-// finished the setup and has run the required processes (watchers and
-// goroutines).
+// enterIdleState is used for preventing the pod from exiting after the test is
+// completed, because it then gets restarted. The test client enters the idle
+// state as soon as it has finished the setup and has run the test goroutines.
 func (c *TestClient) enterIdleState() {
 	log.Printf("Going into idle state")
 	select {
