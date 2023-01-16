@@ -46,8 +46,8 @@ import (
 	{ targetLabelKey: targetLabelValue }.
 
 	The test is set up by this measurement, by creating the required resources,
-	including the network-policy-latency-client pods that are measuring the
-	latencies and generating metrics for them.
+	including the network policy enforcement latency test client pods that are
+  measuring the latencies and generating metrics for them.
 */
 
 const (
@@ -81,7 +81,7 @@ const (
 var manifestsFS embed.FS
 
 func init() {
-	klog.Infof("Registering %q", networkPolicyEnforcementName)
+	klog.V(2).Infof("Registering %q", networkPolicyEnforcementName)
 	if err := measurement.Register(networkPolicyEnforcementName, createNetworkPolicyEnforcementMeasurement); err != nil {
 		klog.Fatalf("Cannot register %s: %v", networkPolicyEnforcementName, err)
 	}
@@ -263,21 +263,21 @@ func (nps *networkPolicyEnforcementMeasurement) run(config *measurement.Config) 
 	}
 
 	if podCreation {
-		return nps.startPodCreationTest(templateMap)
+		return nps.runPodCreationTest(templateMap)
 	}
 
-	return nps.startPolicyCreationTest(templateMap, config)
+	return nps.runPolicyCreationTest(templateMap, config)
 }
 
-func (nps *networkPolicyEnforcementMeasurement) startPodCreationTest(depTemplateMap map[string]interface{}) error {
-	klog.Infof("Starting pod creation network policy enforcement latency measurement")
+func (nps *networkPolicyEnforcementMeasurement) runPodCreationTest(depTemplateMap map[string]interface{}) error {
+	klog.V(2).Infof("Starting network policy enforcement latency measurement for pod creation")
 	return nps.createTestClientDeployments(depTemplateMap, podCreationTest)
 }
 
-func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTemplateMap map[string]interface{}, config *measurement.Config) error {
-	klog.Infof("Starting policy creation network policy enforcement latency measurement")
+func (nps *networkPolicyEnforcementMeasurement) runPolicyCreationTest(depTemplateMap map[string]interface{}, config *measurement.Config) error {
+	klog.V(2).Infof("Starting network policy enforcement latency measurement for policy creation")
 	if nps.baseline {
-		klog.Infof("Baseline flag is specified, which is only used for pod creation test, and means that no network policies should be created. Skipping policy creation test")
+		klog.Warningf("Baseline flag is specified, which is only used for pod creation test, and means that no network policies should be created. Skipping policy creation test")
 		return nil
 	}
 
@@ -285,11 +285,15 @@ func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTempl
 		return err
 	}
 
-	klog.Infof("Waiting for policy creation test client pods to be running")
-	for retries := 0; retries < 5; retries++ {
+	maxRetries := 5
+	retryDuration := 10 * time.Second
+	allReady := false
+
+	klog.V(2).Infof("Waiting for policy creation test client pods to be running")
+	for retries := 0; retries < maxRetries; retries++ {
 		clientPodList, err := nps.k8sClient.CoreV1().Pods(nps.testClientNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: fmt.Sprintf("type = %s", policyCreationTest)})
-		if err == nil {
-			allReady := true
+		if err == nil && len(clientPodList.Items) >= len(nps.targetNamespaces) {
+			allReady = true
 
 			for _, clientPod := range clientPodList.Items {
 				if clientPod.Status.Phase != corev1.PodRunning {
@@ -299,12 +303,16 @@ func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTempl
 			}
 
 			if allReady {
-				klog.Infof("All policy creation test client pods are running")
+				klog.V(2).Infof("All %d policy creation test client pods are running", len(nps.targetNamespaces))
 				break
 			}
 		}
 
-		time.Sleep(10 * time.Second)
+		time.Sleep(retryDuration)
+	}
+
+	if !allReady {
+		klog.Warningf("Not all %d policy creation test client pods are running after %v", len(nps.targetNamespaces), retryDuration*time.Duration(maxRetries))
 	}
 
 	wg := sync.WaitGroup{}
@@ -325,7 +333,7 @@ func (nps *networkPolicyEnforcementMeasurement) startPolicyCreationTest(depTempl
 func (nps *networkPolicyEnforcementMeasurement) createPolicyAllowAPIServer() error {
 	policyName := "allow-egress-apiserver"
 	if policy, err := nps.k8sClient.NetworkingV1().NetworkPolicies(nps.testClientNamespace).Get(context.TODO(), policyName, metav1.GetOptions{}); err == nil && policy != nil {
-		klog.Infof("Attempting to create %q network policy, but it already exists", policyName)
+		klog.Warningf("Attempting to create %q network policy, but it already exists", policyName)
 		return nil
 	}
 
@@ -393,7 +401,7 @@ func (nps *networkPolicyEnforcementMeasurement) createPolicyToTargetPods(testTyp
 }
 
 func (nps *networkPolicyEnforcementMeasurement) createTestClientDeployments(templateMap map[string]interface{}, testType string) error {
-	klog.Infof("Creating test client deployments for measurement %q", networkPolicyEnforcementName)
+	klog.V(2).Infof("Creating test client deployments for measurement %q", networkPolicyEnforcementName)
 	templateMap["TypeLabelValue"] = testType
 
 	// Create a test client deployment for each test namespace.
@@ -456,7 +464,7 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 
 			go func() {
 				if err := nps.framework.ApplyTemplatedManifests(manifestsFS, policyLoadFilePath, templateMapForTargetPods); err != nil {
-					klog.Errorf("error while creating load network policy for label selector 'name=%s': %v", podSelectorLabelValue, err)
+					klog.Errorf("Error while creating load network policy for label selector 'name=%s': %v", podSelectorLabelValue, err)
 				}
 			}()
 
@@ -470,7 +478,7 @@ func (nps *networkPolicyEnforcementMeasurement) createLoadPolicies(config *measu
 }
 
 func (nps *networkPolicyEnforcementMeasurement) createAllowPoliciesForPolicyCreationLatency() {
-	klog.Infof("Creating allow network policies for measurement %q", networkPolicyEnforcementName)
+	klog.V(2).Infof("Creating allow network policies for measurement %q", networkPolicyEnforcementName)
 
 	for i, ns := range nps.targetNamespaces {
 		err := nps.createPolicyToTargetPods(policyCreationTest, ns, false, true, i)
@@ -502,7 +510,7 @@ func (nps *networkPolicyEnforcementMeasurement) complete(config *measurement.Con
 }
 
 func (nps *networkPolicyEnforcementMeasurement) deleteClusterRoleAndBinding() error {
-	klog.Infof("Deleting ClusterRole and ClusterRoleBinding for measurement %q", networkPolicyEnforcementName)
+	klog.V(2).Infof("Deleting ClusterRole and ClusterRoleBinding for measurement %q", networkPolicyEnforcementName)
 
 	if err := nps.k8sClient.RbacV1().ClusterRoles().Delete(context.TODO(), netPolicyTestClientName, metav1.DeleteOptions{}); err != nil {
 		return err
@@ -520,7 +528,7 @@ func (nps *networkPolicyEnforcementMeasurement) cleanUp() error {
 		return err
 	}
 
-	klog.Infof("Deleting namespace %q for measurement %q", nps.testClientNamespace, networkPolicyEnforcementName)
+	klog.V(2).Infof("Deleting namespace %q for measurement %q", nps.testClientNamespace, networkPolicyEnforcementName)
 	return nps.k8sClient.CoreV1().Namespaces().Delete(context.TODO(), nps.testClientNamespace, metav1.DeleteOptions{})
 }
 
@@ -532,6 +540,6 @@ func (nps *networkPolicyEnforcementMeasurement) String() string {
 // Dispose cleans up after the measurement.
 func (nps *networkPolicyEnforcementMeasurement) Dispose() {
 	if err := nps.cleanUp(); err != nil {
-		klog.Infof("cleanUp() returns error: %v", err)
+		klog.Errorf("Failed to clean up, error: %v", err)
 	}
 }
