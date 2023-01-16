@@ -5,6 +5,8 @@
 {{$RUN_ON_ARM_NODES := DefaultParam .CL2_RUN_ON_ARM_NODES false}}
   
 {{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST := DefaultParam .CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST false}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_KEY := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_KEY "test"}}
+{{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE "net-policy-client"}}
 
 apiVersion: apps/v1
 kind: DaemonSet
@@ -48,8 +50,8 @@ spec:
         effect: NoSchedule
       {{end}}
       {{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
-      - key: tests
+      - key: {{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_KEY}}
         operator: Equal
-        value: net-policy-client
+        value: {{$NET_POLICY_ENFORCEMENT_LATENCY_NODE_LABEL_VALUE}}
         effect: NoSchedule
       {{end}}

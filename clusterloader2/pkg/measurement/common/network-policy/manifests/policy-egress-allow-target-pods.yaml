@@ -5,12 +5,10 @@ metadata:
   namespace: {{.Namespace}}
   labels:
     type: {{.TypeLabelValue}}
-    #test: {{.TestClientLabel}}
 spec:
   podSelector:
     matchLabels:
       type: {{.TypeLabelValue}}
-      #test: {{.TestClientLabel}}
   policyTypes:
   - Egress
   egress:

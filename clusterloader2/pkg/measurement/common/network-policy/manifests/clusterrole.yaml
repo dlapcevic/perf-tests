@@ -4,7 +4,7 @@ metadata:
   name: {{.Name}}
 rules:
 - apiGroups: [""]
-  resources: ["pods", "services"]
+  resources: ["pods"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["networking.k8s.io"]
   resources: ["networkpolicies"]

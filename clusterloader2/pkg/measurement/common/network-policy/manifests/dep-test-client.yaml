@@ -22,12 +22,9 @@ spec:
       # nodes where all performance test workloads run.
       nodeSelector:
         {{.TestClientNodeSelectorKey}}: {{.TestClientNodeSelectorValue}}
-        #test: net-policy-client
       tolerations:
-      - #key: test
-        key: {{.TestClientNodeSelectorKey}}
+      - key: {{.TestClientNodeSelectorKey}}
         operator: Equal
-        #value: net-policy-client
         value: {{.TestClientNodeSelectorValue}}
         effect: NoSchedule
       containers:
