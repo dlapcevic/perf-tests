@@ -100,9 +100,16 @@ type networkPolicyEnforcementMeasurement struct {
 	// targetNamespaces are used to direct one client to measure a single
 	// namespace.
 	targetNamespaces []string
-	// baseline test does not create network policies.
-	// baseline is only used for pod creation latency test.
+	// baseline test does not create network policies. It is only used for pod
+	// creation latency test, to compare pod creation reachability latency with
+	// and without network policies.
 	baseline bool
+	// testClientNodeSelectorKey is the key for the node label on which the test
+	// client pods should run.
+	testClientNodeSelectorKey string
+	// testClientNodeSelectorValue is value key for the node label on which the
+	// test client pods should run.
+	testClientNodeSelectorValue string
 }
 
 // Execute - Available actions:
@@ -184,6 +191,14 @@ func (nps *networkPolicyEnforcementMeasurement) initializeMeasurement(config *me
 		return err
 	}
 
+	if nps.testClientNodeSelectorKey, err = util.GetString(config.Params, "testClientNodeSelectorKey"); err != nil {
+		return err
+	}
+
+	if nps.testClientNodeSelectorValue, err = util.GetString(config.Params, "testClientNodeSelectorValue"); err != nil {
+		return err
+	}
+
 	nps.framework = config.ClusterFramework
 	nps.k8sClient = config.ClusterFramework.GetClientSets().GetClient()
 
@@ -252,14 +267,16 @@ func (nps *networkPolicyEnforcementMeasurement) run(config *measurement.Config) 
 
 	templateMap := map[string]interface{}{
 		//"Name":                netPolicyTestClientName,
-		"Namespace":           nps.testClientNamespace,
-		"TestClientLabel":     netPolicyTestClientName,
-		"TargetLabelSelector": fmt.Sprintf("%s = %s", nps.targetLabelKey, nps.targetLabelValue),
-		"TargetPort":          targetPort,
-		"MetricsPort":         metricsPort,
-		"TestPodCreation":     podCreation,
-		"ServiceAccountName":  netPolicyTestClientName,
-		"ExpectedTargets":     expectedTargets,
+		"Namespace":                   nps.testClientNamespace,
+		"TestClientLabel":             netPolicyTestClientName,
+		"TargetLabelSelector":         fmt.Sprintf("%s = %s", nps.targetLabelKey, nps.targetLabelValue),
+		"TargetPort":                  targetPort,
+		"MetricsPort":                 metricsPort,
+		"TestPodCreation":             podCreation,
+		"ServiceAccountName":          netPolicyTestClientName,
+		"ExpectedTargets":             expectedTargets,
+		"TestClientNodeSelectorKey":   nps.testClientNodeSelectorKey,
+		"TestClientNodeSelectorValue": nps.testClientNodeSelectorValue,
 	}
 
 	if podCreation {

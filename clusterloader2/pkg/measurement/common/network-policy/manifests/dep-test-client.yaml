@@ -18,12 +18,17 @@ spec:
         test: {{.TestClientLabel}}
         type: {{.TypeLabelValue}}
     spec:
+      # Use separate nodes to avoid consuming CPU/Memory resources on standard
+      # nodes where all performance test workloads run.
       nodeSelector:
-        test: net-policy-client
+        {{.TestClientNodeSelectorKey}}: {{.TestClientNodeSelectorValue}}
+        #test: net-policy-client
       tolerations:
-      - key: test
+      - #key: test
+        key: {{.TestClientNodeSelectorKey}}
         operator: Equal
-        value: net-policy-client
+        #value: net-policy-client
+        value: {{.TestClientNodeSelectorValue}}
         effect: NoSchedule
       containers:
       - name: net-policy-latency-client
