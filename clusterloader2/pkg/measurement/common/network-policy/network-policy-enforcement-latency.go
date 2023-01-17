@@ -37,7 +37,7 @@ import (
 /*
 	The measurement tests network policy enforcement latency for two cases:
 		1. Created pods that are affected by network policies
-	Deploy the test clients (setup and start) with "podCreation" flag set to true,
+	Deploy the test clients (setup and start) with "podCreationMode" flag set to true,
 	before creating the target pods.
 		2. Created network policies
 	Deploy the test clients (setup and start) after creating the target pods.
@@ -250,7 +250,7 @@ func (nps *networkPolicyEnforcementMeasurement) run(config *measurement.Config) 
 		return err
 	}
 
-	expectedTargets, err := util.GetIntOrDefault(config.Params, "expectedTargets", 1000)
+	maxTargets, err := util.GetIntOrDefault(config.Params, "maxTargets", 1000)
 	if err != nil {
 		return err
 	}
@@ -260,7 +260,7 @@ func (nps *networkPolicyEnforcementMeasurement) run(config *measurement.Config) 
 		return err
 	}
 
-	podCreation, err := util.GetBoolOrDefault(config.Params, "podCreation", false)
+	podCreationMode, err := util.GetBoolOrDefault(config.Params, "podCreationMode", false)
 	if err != nil {
 		return err
 	}
@@ -272,14 +272,14 @@ func (nps *networkPolicyEnforcementMeasurement) run(config *measurement.Config) 
 		"TargetLabelSelector":         fmt.Sprintf("%s = %s", nps.targetLabelKey, nps.targetLabelValue),
 		"TargetPort":                  targetPort,
 		"MetricsPort":                 metricsPort,
-		"TestPodCreation":             podCreation,
+		"PodCreationMode":             podCreationMode,
 		"ServiceAccountName":          netPolicyTestClientName,
-		"ExpectedTargets":             expectedTargets,
+		"maxTargets":                  maxTargets,
 		"TestClientNodeSelectorKey":   nps.testClientNodeSelectorKey,
 		"TestClientNodeSelectorValue": nps.testClientNodeSelectorValue,
 	}
 
-	if podCreation {
+	if podCreationMode {
 		return nps.runPodCreationTest(templateMap)
 	}
 
@@ -381,7 +381,7 @@ func (nps *networkPolicyEnforcementMeasurement) createPolicyAllowAPIServer() err
 	return nil
 }
 
-func (nps *networkPolicyEnforcementMeasurement) createPolicyToTargetPods(testType, targetNamespace string, podCreation, allowForTargetPods bool, idx int) error {
+func (nps *networkPolicyEnforcementMeasurement) createPolicyToTargetPods(testType, targetNamespace string, podCreationMode, allowForTargetPods bool, idx int) error {
 	templateMap := map[string]interface{}{
 		"Namespace":      nps.testClientNamespace,
 		"TypeLabelValue": testType,
@@ -404,7 +404,7 @@ func (nps *networkPolicyEnforcementMeasurement) createPolicyToTargetPods(testTyp
 		basePolicyName = denyPolicyName
 	}
 
-	if podCreation {
+	if podCreationMode {
 		templateMap["Name"] = fmt.Sprintf("%s-%s", basePolicyName, testType)
 	} else {
 		templateMap["Name"] = fmt.Sprintf("%s-%d", basePolicyName, idx)
@@ -507,13 +507,13 @@ func (nps *networkPolicyEnforcementMeasurement) createAllowPoliciesForPolicyCrea
 
 // complete deletes test client deployments for the specified test mode.
 func (nps *networkPolicyEnforcementMeasurement) complete(config *measurement.Config) error {
-	podCreation, err := util.GetBoolOrDefault(config.Params, "podCreation", false)
+	podCreationMode, err := util.GetBoolOrDefault(config.Params, "podCreationMode", false)
 	if err != nil {
 		return err
 	}
 
 	typeLabelValue := policyCreationTest
-	if podCreation {
+	if podCreationMode {
 		typeLabelValue = podCreationTest
 	}
 

@@ -43,10 +43,10 @@ spec:
           -targetLabelSelector="{{.TargetLabelSelector}}"
           -targetNamespace="{{.TargetNamespace}}"
           -targetPort={{.TargetPort}}
-          -expectedTargets={{.ExpectedTargets}}
+          -maxTargets={{.MaxTargets}}
           -allowPolicyName={{.AllowPolicyName}}
           -metricsPort={{.MetricsPort}}
-          -testPodCreation={{.TestPodCreation}}
+          -podCreationMode={{.PodCreationMode}}
         resources:
           requests:
             cpu: 500m

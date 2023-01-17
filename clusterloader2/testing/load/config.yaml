@@ -124,7 +124,7 @@ steps:
     params:
       setup: true
       run: true
-      podCreation: true
+      podCreationMode: true
 
 - module:
     path: modules/services.yaml
@@ -280,13 +280,13 @@ steps:
     path: modules/network-policy/net-policy-enforcement-latency.yaml
     params:
       complete: true
-      podCreation: true
+      podCreationMode: true
 
 - module:
     path: modules/network-policy/net-policy-enforcement-latency.yaml
     params:
       run: true
-      podCreation: false
+      podCreationMode: false
 
 - module:
     path: /modules/reconcile-objects.yaml

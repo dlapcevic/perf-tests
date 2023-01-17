@@ -12,7 +12,7 @@
 {{$setup := DefaultParam .setup false}}
 {{$run := DefaultParam .run false}}
 {{$complete := DefaultParam .complete false}}
-{{$podCreation := DefaultParam .podCreation false}}
+{{$podCreationMode := DefaultParam .podCreationMode false}}
 # Target port needs to match the server container port of target pods that have
 # "targetLabelKey: targetLabelValue" label selector.
 {{$targetPort := 80}}
@@ -35,28 +35,28 @@ steps:
   {{end}}
   
   {{if $run}}
-- name: "Run pod creation network policy enforcement latency measurement (podCreation={{$podCreation}})"
+- name: "Run pod creation network policy enforcement latency measurement (podCreationMode={{$podCreationMode}})"
   measurements:
   - Identifier: NetworkPolicyEnforcement
     Method: NetworkPolicyEnforcement
     Params:
       action: run
-      podCreation: {{$podCreation}}
+      podCreationMode: {{$podCreationMode}}
       targetPort: {{$targetPort}}
-      expectedTargets: {{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGET_PODS_PER_NS}}
+      maxTargets: {{$NET_POLICY_ENFORCEMENT_LATENCY_MAX_TARGET_PODS_PER_NS}}
       policyLoadCount: {{$NET_POLICY_ENFORCEMENT_LOAD_COUNT}}
       policyLoadQPS: {{$NET_POLICY_ENFORCEMENT_LOAD_QPS}}
       policyLoadTargetBaseName: {{$NET_POLICY_ENFORCEMENT_LOAD_TARGET_NAME}}
   {{end}}
   
   {{if $complete}}
-- name: "Complete pod creation network policy enforcement latency measurement (podCreation={{$podCreation}})"
+- name: "Complete pod creation network policy enforcement latency measurement (podCreationMode={{$podCreationMode}})"
   measurements:
   - Identifier: NetworkPolicyEnforcement
     Method: NetworkPolicyEnforcement
     Params:
       action: complete
-      podCreation: {{$podCreation}}
+      podCreationMode: {{$podCreationMode}}
   {{end}}
 
 {{end}}

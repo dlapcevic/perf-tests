@@ -2,8 +2,8 @@
 
 # Valid actions: "start", "gather"
 {{$action := .action}}
-{{$podCreation := DefaultParam .podCreation true}}
-{{$policyCreation := DefaultParam .policyCreation true}}
+{{$podCreationMode := DefaultParam .podCreationMode true}}
+{{$policyCreationMode := DefaultParam .policyCreationMode true}}
 {{$networkPolicyMetrics := DefaultParam .networkPolicyMetrics true}}
 
 {{if $ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
@@ -20,7 +20,7 @@ steps:
       unit: s
       queries:
       # Network policy enforcement metrics gathered from the test clients.
-      {{if $policyCreation}}
+      {{if $policyCreationMode}}
         - name: PolicyCreation - TargetCount
           query: sum(policy_enforcement_latency_policy_creation_seconds_count)
         - name: PolicyCreation - Bucket 5s
@@ -38,7 +38,7 @@ steps:
         - name: PolicyCreation - Perc99
           query: histogram_quantile(0.99, sum(policy_enforcement_latency_policy_creation_seconds_bucket) by (le))
       {{end}}
-      {{if $podCreation}}
+      {{if $podCreationMode}}
         - name: PodCreation - TargetCount
           query: sum(policy_enforcement_latency_pod_creation_seconds_count)
         - name: PodCreation - Bucket 1s
