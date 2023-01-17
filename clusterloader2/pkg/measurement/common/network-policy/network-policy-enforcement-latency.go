@@ -274,7 +274,7 @@ func (nps *networkPolicyEnforcementMeasurement) run(config *measurement.Config) 
 		"MetricsPort":                 metricsPort,
 		"PodCreationMode":             podCreationMode,
 		"ServiceAccountName":          netPolicyTestClientName,
-		"maxTargets":                  maxTargets,
+		"MaxTargets":                  maxTargets,
 		"TestClientNodeSelectorKey":   nps.testClientNodeSelectorKey,
 		"TestClientNodeSelectorValue": nps.testClientNodeSelectorValue,
 	}
