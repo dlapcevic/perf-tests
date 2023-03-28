@@ -120,6 +120,13 @@ steps:
       action: start
 
 - module:
+    path: modules/network-policy/net-policy-enforcement-latency.yaml
+    params:
+      setup: true
+      run: true
+      testType: "pod-creation"
+
+- module:
     path: modules/services.yaml
     params:
       actionName: "Creating"
@@ -265,6 +272,24 @@ steps:
 {{end}}
 
 - module:
+    path: modules/network-policy/net-policy-metrics.yaml
+    params:
+      action: gather
+      usePolicyCreationMetrics: false
+
+- module:
+    path: modules/network-policy/net-policy-enforcement-latency.yaml
+    params:
+      complete: true
+      testType: "pod-creation"
+
+- module:
+    path: modules/network-policy/net-policy-enforcement-latency.yaml
+    params:
+      run: true
+      testType: "policy-creation"
+
+- module:
     path: /modules/reconcile-objects.yaml
     params:
       actionName: "scale and update"
@@ -363,3 +388,9 @@ steps:
     path: /modules/measurements.yaml
     params:
       action: gather
+
+- module:
+    path: modules/network-policy/net-policy-enforcement-latency.yaml
+    params:
+      complete: true
+      testType: "policy-creation"
