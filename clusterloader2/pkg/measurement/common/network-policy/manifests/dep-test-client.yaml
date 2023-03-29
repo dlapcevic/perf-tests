@@ -1,4 +1,4 @@
-{{$isPolicyCreateTest := eq .AppName "policy-creation-enforcement-latency"}
+{{$isPolicyCreateTest := eq .AppName "policy-creation-enforcement-latency"}}
 
 apiVersion: apps/v1
 kind: Deployment
