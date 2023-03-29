@@ -1,3 +1,5 @@
+{{$isPolicyCreateTest := eq .AppName "policy-creation-enforcement-latency"}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -45,7 +47,9 @@ spec:
           -TargetPort={{.TargetPort}}
           -MaxTargets={{.MaxTargets}}
           -MetricsPort={{.MetricsPort}}
+        {{if $isPolicyCreateTest}}
           -AllowPolicyName={{.AllowPolicyName}}
+        {{end}}
         resources:
           requests:
             cpu: 200m
