@@ -295,6 +295,7 @@ func (nps *networkPolicyEnforcementMeasurement) run(config *measurement.Config) 
 
 	switch testType {
 	case policyCreationTest:
+		templateMap["IsPolicyCreationTest"] = true
 		templateMap["AppName"] = policyCreationAppName
 		templateMap["AppVersion"] = policyCreationAppVersion
 		err = nps.runPolicyCreationTest(templateMap, config)
