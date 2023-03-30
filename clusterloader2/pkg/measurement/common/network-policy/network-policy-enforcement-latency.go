@@ -65,22 +65,18 @@ const (
 	allowPolicyName = "allow-egress-to-target"
 	denyPolicyName  = "deny-egress-to-target"
 
-	serviceAccountFilePath         = "manifests/serviceaccount.yaml"
-	clusterRoleFilePath            = "manifests/clusterrole.yaml"
-	clusterRoleBindingFilePath     = "manifests/clusterrolebinding.yaml"
-	depTestClientFilePath          = "manifests/dep-test-client.yaml"
-	policyEgressApiserverFilePath  = "manifests/policy-egress-allow-apiserver.yaml"
-	policyEgressTargetPodsFilePath = "manifests/policy-egress-allow-target-pods.yaml"
-	policyLoadFilePath             = "manifests/policy-load.yaml"
+	serviceAccountFilePath              = "manifests/serviceaccount.yaml"
+	clusterRoleFilePath                 = "manifests/clusterrole.yaml"
+	clusterRoleBindingFilePath          = "manifests/clusterrolebinding.yaml"
+	depTestClientPolicyCreationFilePath = "manifests/dep-test-client-policy-creation.yaml"
+	depTestClientPodCreationFilePath    = "manifests/dep-test-client-pod-creation.yaml"
+	policyEgressApiserverFilePath       = "manifests/policy-egress-allow-apiserver.yaml"
+	policyEgressTargetPodsFilePath      = "manifests/policy-egress-allow-target-pods.yaml"
+	policyLoadFilePath                  = "manifests/policy-load.yaml"
 
 	defaultPolicyTargetLoadBaseName = "small-deployment"
 	defaultPolicyLoadCount          = 1000
 	defaultPolicyLoadQPS            = 10
-
-	policyCreationAppName    = "policy-creation-enforcement-latency"
-	policyCreationAppVersion = "v0.0.1"
-	podCreationAppName       = "pod-creation-reachability-latency"
-	podCreationAppVersion    = "v0.0.1"
 )
 
 //go:embed manifests
@@ -295,13 +291,8 @@ func (nps *networkPolicyEnforcementMeasurement) run(config *measurement.Config) 
 
 	switch testType {
 	case policyCreationTest:
-		templateMap["IsPolicyCreationTest"] = true
-		templateMap["AppName"] = policyCreationAppName
-		templateMap["AppVersion"] = policyCreationAppVersion
 		err = nps.runPolicyCreationTest(templateMap, config)
 	case podCreationTest:
-		templateMap["AppName"] = podCreationAppName
-		templateMap["AppVersion"] = podCreationAppVersion
 		err = nps.runPodCreationTest(templateMap)
 	default:
 		err = fmt.Errorf("unknown testType is specified: %q", testType)
@@ -312,7 +303,7 @@ func (nps *networkPolicyEnforcementMeasurement) run(config *measurement.Config) 
 
 func (nps *networkPolicyEnforcementMeasurement) runPodCreationTest(depTemplateMap map[string]interface{}) error {
 	klog.V(2).Infof("Starting network policy enforcement latency measurement for pod creation")
-	return nps.createTestClientDeployments(depTemplateMap, podCreationTest, depTestClientFilePath)
+	return nps.createTestClientDeployments(depTemplateMap, podCreationTest, depTestClientPodCreationFilePath)
 }
 
 func (nps *networkPolicyEnforcementMeasurement) runPolicyCreationTest(depTemplateMap map[string]interface{}, config *measurement.Config) error {
@@ -322,7 +313,7 @@ func (nps *networkPolicyEnforcementMeasurement) runPolicyCreationTest(depTemplat
 		return nil
 	}
 
-	if err := nps.createTestClientDeployments(depTemplateMap, policyCreationTest, depTestClientFilePath); err != nil {
+	if err := nps.createTestClientDeployments(depTemplateMap, policyCreationTest, depTestClientPolicyCreationFilePath); err != nil {
 		return err
 	}
 

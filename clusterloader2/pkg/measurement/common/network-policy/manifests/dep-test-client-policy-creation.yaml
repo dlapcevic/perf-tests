@@ -34,20 +34,18 @@ spec:
           name: npdelaymetrics
           protocol: TCP
         imagePullPolicy: Always
-        image: gcr.io/k8s-staging-perf-tests/network-policy-enforcement-latency/{{.AppName}}:{{.AppVersion}}
+        image: gcr.io/k8s-staging-perf-tests/network-policy-enforcement-latency/policy-creation-enforcement-latency:v0.0.1
         command:
         - sh
         - -c
-        - ./{{.AppName}}
+        - ./policy-creation-enforcement-latency
           -HostNamespace="{{.Namespace}}"
           -TargetLabelSelector="{{.TargetLabelSelector}}"
           -TargetNamespace="{{.TargetNamespace}}"
           -TargetPort={{.TargetPort}}
           -MaxTargets={{.MaxTargets}}
           -MetricsPort={{.MetricsPort}}
-        {{if .IsPolicyCreationTest}}
           -AllowPolicyName={{.AllowPolicyName}}
-        {{end}}
         resources:
           requests:
             cpu: 200m
