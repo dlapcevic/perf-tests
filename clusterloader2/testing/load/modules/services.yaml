@@ -7,10 +7,6 @@
 {{$mediumServicesPerNamespace := .mediumServicesPerNamespace}}
 {{$bigServicesPerNamespace := .bigServicesPerNamespace}}
 
-{{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST := DefaultParam .CL2_ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST false}}
-{{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY "net-pol-test"}}
-{{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE := DefaultParam .CL2_NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE "enforcement-latency"}}
-
 steps:
 - name: "{{$actionName}} k8s services"
   phases:
@@ -38,7 +34,3 @@ steps:
     objectBundle:
     - basename: small-service
       objectTemplatePath: service.yaml
-      templateFillMap:
-        EnableNetworkPolicyEnforcementLatencyTest: {{$ENABLE_NETWORK_POLICY_ENFORCEMENT_LATENCY_TEST}}
-        TargetLabelKey: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_KEY}}
-        TargetLabelValue: {{$NET_POLICY_ENFORCEMENT_LATENCY_TARGET_LABEL_VALUE}}
