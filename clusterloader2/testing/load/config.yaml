@@ -134,9 +134,13 @@ steps:
     params:
       actionName: "Creating"
       namespaces: {{$namespaces}}
-      smallServicesPerNamespace: {{DivideInt (AddInt $smallDeploymentsPerNamespace 1) 2}}
-      mediumServicesPerNamespace: {{DivideInt (AddInt $mediumDeploymentsPerNamespace 1) 2}}
-      bigServicesPerNamespace: {{DivideInt (AddInt $bigDeploymentsPerNamespace 1) 2}}
+      smallServicesPerNamespace: {{DivideInt (AddInt $smallDeploymentsPerNamespace 1) 4}}
+      mediumServicesPerNamespace: {{DivideInt (AddInt $mediumDeploymentsPerNamespace 1) 4}}
+      bigServicesPerNamespace: {{DivideInt (AddInt $bigDeploymentsPerNamespace 1) 4}}
+      # Create service only for 1/4 of deployments instead of 1/2.
+      #smallServicesPerNamespace: {{DivideInt (AddInt $smallDeploymentsPerNamespace 1) 2}}
+      #mediumServicesPerNamespace: {{DivideInt (AddInt $mediumDeploymentsPerNamespace 1) 2}}
+      #bigServicesPerNamespace: {{DivideInt (AddInt $bigDeploymentsPerNamespace 1) 2}}
 
 - name: Creating PriorityClass for DaemonSets
   phases:
