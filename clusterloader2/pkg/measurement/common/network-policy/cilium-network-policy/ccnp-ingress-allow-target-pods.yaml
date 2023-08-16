@@ -1,0 +1,13 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: {{.Name}}
+spec:
+  description: A cluster-wide policy to allow servers in all namespaces to receive traffic from clients
+  endpointSelector:
+    matchLabels:
+      type: {{.TypeLabelValue}}
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        {{.TargetLabelKey}}: {{.TargetLabelValue}}

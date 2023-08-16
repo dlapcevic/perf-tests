@@ -74,6 +74,17 @@ const (
 	policyEgressTargetPodsFilePath      = "manifests/policy-egress-allow-target-pods.yaml"
 	policyLoadFilePath                  = "manifests/policy-load.yaml"
 
+	// CCNP manifests
+	ccnpFileCRD           = "cilium-network-policy/ccnp-crd.yaml"
+	ccnpFileAPIServer     = "cilium-network-policy/ccnp-allow-apiserver.yaml"
+	ccnpFileDNS           = "cilium-network-policy/ccnp-allow-dns.yaml"
+	ccnpFileMetadata      = "cilium-network-policy/ccnp-allow-metadata-egress.yaml"
+	ccnpFileIngressTarget = "cilium-network-policy/ccnp-ingress-allow-target-pods.yaml"
+	ccnpFileEgressTarget  = "cilium-network-policy/ccnp-egress-allow-target-pods.yaml"
+	ccnpFileDenyAll       = "cilium-network-policy/ccnp-deny-all.yaml"
+
+	// ---
+
 	defaultPolicyTargetLoadBaseName = "small-deployment"
 	defaultPolicyLoadCount          = 1000
 	defaultPolicyLoadQPS            = 10
@@ -157,6 +168,10 @@ func (nps *networkPolicyEnforcementMeasurement) setup(config *measurement.Config
 
 	// Create network policies for non-baseline test.
 	if !nps.baseline {
+		if err = nps.createCCNPs(); err != nil {
+			return err
+		}
+
 		if err = nps.createPolicyAllowAPIServer(); err != nil {
 			return err
 		}
@@ -177,6 +192,45 @@ func (nps *networkPolicyEnforcementMeasurement) setup(config *measurement.Config
 	}
 
 	return nps.createPermissionResources()
+}
+
+func (nps *networkPolicyEnforcementMeasurement) createCCNPs() error {
+	// Install CiliumClusterwideNetworkPolicy CRD.
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileCRD, map[string]interface{}{}); err != nil {
+		return fmt.Errorf("error while creating %s: %v", ccnpFileCRD, err)
+	}
+
+	time.Sleep(10 * time.Second)
+
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileDenyAll, map[string]interface{}{}); err != nil {
+		return fmt.Errorf("error while creating %s: %v", ccnpFileDenyAll, err)
+	}
+
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileDNS, map[string]interface{}{}); err != nil {
+		return fmt.Errorf("error while creating %s: %v", ccnpFileDNS, err)
+	}
+
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileMetadata, map[string]interface{}{}); err != nil {
+		return fmt.Errorf("error while creating %s: %v", ccnpFileMetadata, err)
+	}
+
+	templateMap := map[string]interface{}{
+		"TargetLabelKey":   nps.targetLabelKey,
+		"TargetLabelValue": nps.targetLabelValue,
+		"TypeLabelValue":   podCreationTest,
+	}
+
+	templateMap["Name"] = "allow-ingress-target-pods-pod-creation"
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileIngressTarget, templateMap); err != nil {
+		return fmt.Errorf("error while creating %s: %v", ccnpFileIngressTarget, err)
+	}
+
+	templateMap["Name"] = "allow-egress-target-pods-pod-creation"
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileIngressTarget, map[string]interface{}{}); err != nil {
+		return fmt.Errorf("error while creating %s: %v", ccnpFileIngressTarget, err)
+	}
+
+	return nil
 }
 
 func (nps *networkPolicyEnforcementMeasurement) initializeMeasurement(config *measurement.Config) error {
@@ -396,6 +450,10 @@ func (nps *networkPolicyEnforcementMeasurement) createPolicyAllowAPIServer() err
 		return fmt.Errorf("error while creating allow egress to apiserver network policy: %v", err)
 	}
 
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAPIServer, templateMap); err != nil {
+		return fmt.Errorf("error while creating %s: %v", ccnpFileAPIServer, err)
+	}
+
 	return nil
 }
 
@@ -506,6 +564,22 @@ func (nps *networkPolicyEnforcementMeasurement) createAllowPoliciesForPolicyCrea
 		if err != nil {
 			klog.Errorf("Failed to create a network policy to allow traffic to namespace %q", ns)
 		}
+	}
+
+	templateMap := map[string]interface{}{
+		"TargetLabelKey":   nps.targetLabelKey,
+		"TargetLabelValue": nps.targetLabelValue,
+		"TypeLabelValue":   policyCreationTest,
+	}
+
+	templateMap["Name"] = "allow-ingress-target-pods-policy-creation"
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileIngressTarget, templateMap); err != nil {
+		klog.Errorf("error while creating %s: %v", ccnpFileIngressTarget, err)
+	}
+
+	templateMap["Name"] = "allow-egress-target-pods-policy-creation"
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileIngressTarget, map[string]interface{}{}); err != nil {
+		klog.Errorf("error while creating %s: %v", ccnpFileIngressTarget, err)
 	}
 }
 

@@ -1,0 +1,12 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: deny-all-policy
+spec:
+  # https://docs.cilium.io/en/v1.11/policy/language/#ingress-egress-default-deny
+  description: A cluster-wide default deny policy
+  endpointSelector: {}
+  ingress:
+    - {}
+  egress:
+    - {}

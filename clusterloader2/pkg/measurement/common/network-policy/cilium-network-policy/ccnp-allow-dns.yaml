@@ -1,0 +1,17 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-all-dns
+spec:
+  description: A cluster-wide policy to allow all ingress and egress DNS traffic on port 53
+  endpointSelector: {}
+  egress:
+    - toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+  ingress:
+    - toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY

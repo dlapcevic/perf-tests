@@ -1,0 +1,14 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-metadata-egress
+spec:
+  description: A cluster-wide policy to allow EC2 instance metadata egress over port 80
+  endpointSelector: {}
+  egress:
+    - toCIDRSet:
+        - cidr: 169.254.169.254/32
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
