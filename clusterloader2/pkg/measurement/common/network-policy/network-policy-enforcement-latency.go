@@ -203,10 +203,11 @@ func (nps *networkPolicyEnforcementMeasurement) createCCNPs() error {
 
 	time.Sleep(10 * time.Second)
 
-	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileDenyAll, map[string]interface{}{}); err != nil {
-		klog.Errorf("Error while creating %s: %v", ccnpFileDenyAll, err)
-		//return fmt.Errorf("error while creating %s: %v", ccnpFileDenyAll, err)
-	}
+	// Let's try without deny all.
+	//if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileDenyAll, map[string]interface{}{}); err != nil {
+	//	klog.Errorf("Error while creating %s: %v", ccnpFileDenyAll, err)
+	//	//return fmt.Errorf("error while creating %s: %v", ccnpFileDenyAll, err)
+	//}
 
 	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileDNS, map[string]interface{}{}); err != nil {
 		klog.Errorf("Error while creating %s: %v", ccnpFileDNS, err)
@@ -231,7 +232,7 @@ func (nps *networkPolicyEnforcementMeasurement) createCCNPs() error {
 	}
 
 	templateMap["Name"] = "allow-egress-target-pods-pod-creation"
-	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileEgressTarget, map[string]interface{}{}); err != nil {
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileEgressTarget, templateMap); err != nil {
 		klog.Errorf("Error while creating %s: %v", ccnpFileEgressTarget, err)
 		//return fmt.Errorf("error while creating %s: %v", ccnpFileEgressTarget, err)
 	}
