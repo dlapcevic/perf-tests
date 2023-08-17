@@ -75,13 +75,15 @@ const (
 	policyLoadFilePath                  = "manifests/policy-load.yaml"
 
 	// CCNP manifests
-	ccnpFileCRD           = "manifests/cnp/ccnp-crd.yaml"
-	ccnpFileAPIServer     = "manifests/cnp/ccnp-allow-apiserver.yaml"
-	ccnpFileDNS           = "manifests/cnp/ccnp-allow-dns.yaml"
-	ccnpFileMetadata      = "manifests/cnp/ccnp-allow-metadata-egress.yaml"
-	ccnpFileIngressTarget = "manifests/cnp/ccnp-ingress-allow-target-pods.yaml"
-	ccnpFileEgressTarget  = "manifests/cnp/ccnp-egress-allow-target-pods.yaml"
-	ccnpFileDenyAll       = "manifests/cnp/ccnp-deny-all.yaml"
+	ccnpFileCRD                = "manifests/cnp/ccnp-crd.yaml"
+	ccnpFileAPIServer          = "manifests/cnp/ccnp-allow-apiserver.yaml"
+	ccnpFileDNS                = "manifests/cnp/ccnp-allow-dns.yaml"
+	ccnpFileMetadata           = "manifests/cnp/ccnp-allow-metadata-egress.yaml"
+	ccnpFileIngressTarget      = "manifests/cnp/ccnp-ingress-allow-target-pods.yaml"
+	ccnpFileEgressTarget       = "manifests/cnp/ccnp-egress-allow-target-pods.yaml"
+	ccnpFileDenyAll            = "manifests/cnp/ccnp-deny-all.yaml"
+	ccnpFileAllowIngressFromNS = "manifests/cnp/ccnp-for-all-allow-ingress-template.yaml"
+	ccnpFileAllowAllForNS      = "manifests/cnp/ccnp-allow-all-ingress-and-egress-template.yaml"
 
 	// ---
 
@@ -198,26 +200,19 @@ func (nps *networkPolicyEnforcementMeasurement) createCCNPs() error {
 	// Install CiliumClusterwideNetworkPolicy CRD.
 	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileCRD, map[string]interface{}{}); err != nil {
 		klog.Errorf("Error while creating %s: %v", ccnpFileCRD, err)
-		//return fmt.Errorf("error while creating %s: %v", ccnpFileCRD, err)
 	}
 
 	time.Sleep(10 * time.Second)
 
-	// Let's try without deny all.
-	//if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileDenyAll, map[string]interface{}{}); err != nil {
-	//	klog.Errorf("Error while creating %s: %v", ccnpFileDenyAll, err)
-	//	//return fmt.Errorf("error while creating %s: %v", ccnpFileDenyAll, err)
-	//}
-
 	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileDNS, map[string]interface{}{}); err != nil {
 		klog.Errorf("Error while creating %s: %v", ccnpFileDNS, err)
-		//return fmt.Errorf("error while creating %s: %v", ccnpFileDNS, err)
 	}
 
 	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileMetadata, map[string]interface{}{}); err != nil {
 		klog.Errorf("Error while creating %s: %v", ccnpFileMetadata, err)
-		//return fmt.Errorf("error while creating %s: %v", ccnpFileMetadata, err)
 	}
+
+	nps.createCNPsAllowTestComponents()
 
 	templateMap := map[string]interface{}{
 		"TargetLabelKey":   nps.targetLabelKey,
@@ -228,16 +223,58 @@ func (nps *networkPolicyEnforcementMeasurement) createCCNPs() error {
 	templateMap["Name"] = "allow-ingress-target-pods-pod-creation"
 	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileIngressTarget, templateMap); err != nil {
 		klog.Errorf("Error while creating %s: %v", ccnpFileIngressTarget, err)
-		//return fmt.Errorf("error while creating %s: %v", ccnpFileIngressTarget, err)
 	}
 
 	templateMap["Name"] = "allow-egress-target-pods-pod-creation"
 	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileEgressTarget, templateMap); err != nil {
 		klog.Errorf("Error while creating %s: %v", ccnpFileEgressTarget, err)
-		//return fmt.Errorf("error while creating %s: %v", ccnpFileEgressTarget, err)
+	}
+
+	// Apply the deny-all policy at the end, to avoid disrupting the test.
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileDenyAll, map[string]interface{}{}); err != nil {
+		klog.Errorf("Error while creating %s: %v", ccnpFileDenyAll, err)
 	}
 
 	return nil
+}
+
+func (nps *networkPolicyEnforcementMeasurement) createCNPsAllowTestComponents() {
+	testNPTemplateMap := map[string]interface{}{}
+
+	ns := "cluster-loader"
+	setTemplateMapNameAndNS(testNPTemplateMap, fmt.Sprintf("allow-all-ingress-from-%s", ns), ns)
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAllowIngressFromNS, testNPTemplateMap); err != nil {
+		klog.Errorf("Error while creating %s: %v", ccnpFileAllowIngressFromNS, err)
+	}
+	testNPTemplateMap["Name"] = fmt.Sprintf("allow-all-ingress-egress-%s", ns)
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAllowAllForNS, testNPTemplateMap); err != nil {
+		klog.Errorf("Error while creating %s: %v", ccnpFileAllowAllForNS, err)
+	}
+
+	ns = "monitoring"
+	setTemplateMapNameAndNS(testNPTemplateMap, fmt.Sprintf("allow-all-ingress-from-%s", ns), ns)
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAllowIngressFromNS, testNPTemplateMap); err != nil {
+		klog.Errorf("Error while creating %s: %v", ccnpFileAllowIngressFromNS, err)
+	}
+	testNPTemplateMap["Name"] = fmt.Sprintf("allow-all-ingress-egress-%s", ns)
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAllowAllForNS, testNPTemplateMap); err != nil {
+		klog.Errorf("Error while creating %s: %v", ccnpFileAllowAllForNS, err)
+	}
+
+	ns = "probes"
+	setTemplateMapNameAndNS(testNPTemplateMap, fmt.Sprintf("allow-all-ingress-from-%s", ns), ns)
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAllowIngressFromNS, testNPTemplateMap); err != nil {
+		klog.Errorf("Error while creating %s: %v", ccnpFileAllowIngressFromNS, err)
+	}
+	testNPTemplateMap["Name"] = fmt.Sprintf("allow-all-ingress-egress-%s", ns)
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAllowAllForNS, testNPTemplateMap); err != nil {
+		klog.Errorf("Error while creating %s: %v", ccnpFileAllowAllForNS, err)
+	}
+}
+
+func setTemplateMapNameAndNS(templateMap map[string]interface{}, name, ns string) {
+	templateMap["Name"] = name
+	templateMap["Namespace"] = ns
 }
 
 func (nps *networkPolicyEnforcementMeasurement) initializeMeasurement(config *measurement.Config) error {

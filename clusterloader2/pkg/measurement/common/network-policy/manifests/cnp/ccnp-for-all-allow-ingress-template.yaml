@@ -1,0 +1,11 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: {{.Name}}
+spec:
+  description: A cluster-wide policy for all pods in all namespaces to allow ingress from namespace {{.Namespace}}
+  endpointSelector: {}
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: {{.Namespace}}
