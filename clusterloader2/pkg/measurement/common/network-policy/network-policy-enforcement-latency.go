@@ -622,7 +622,7 @@ func (nps *networkPolicyEnforcementMeasurement) createAllowPoliciesForPolicyCrea
 	}
 
 	templateMap["Name"] = "allow-egress-target-pods-policy-creation"
-	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileIngressTarget, map[string]interface{}{}); err != nil {
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileIngressTarget, templateMap); err != nil {
 		klog.Errorf("Error while creating %s: %v", ccnpFileIngressTarget, err)
 	}
 }
