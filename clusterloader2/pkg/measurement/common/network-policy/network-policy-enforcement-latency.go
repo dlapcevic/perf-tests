@@ -270,6 +270,16 @@ func (nps *networkPolicyEnforcementMeasurement) createCNPsAllowTestComponents() 
 	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAllowAllForNS, testNPTemplateMap); err != nil {
 		klog.Errorf("Error while applying %s, policy=%s: %v", ccnpFileAllowAllForNS, testNPTemplateMap["Name"], err)
 	}
+
+	ns = "net-policy-test"
+	setTemplateMapNameAndNS(testNPTemplateMap, fmt.Sprintf("allow-all-ingress-from-%s", ns), ns)
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAllowIngressFromNS, testNPTemplateMap); err != nil {
+		klog.Errorf("Error while applying %s, policy=%s: %v", ccnpFileAllowIngressFromNS, testNPTemplateMap["Name"], err)
+	}
+	testNPTemplateMap["Name"] = fmt.Sprintf("allow-all-ingress-egress-%s", ns)
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAllowAllForNS, testNPTemplateMap); err != nil {
+		klog.Errorf("Error while applying %s, policy=%s: %v", ccnpFileAllowAllForNS, testNPTemplateMap["Name"], err)
+	}
 }
 
 func setTemplateMapNameAndNS(templateMap map[string]interface{}, name, ns string) {
