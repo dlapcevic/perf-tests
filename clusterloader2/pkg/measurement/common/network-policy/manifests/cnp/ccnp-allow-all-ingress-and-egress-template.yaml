@@ -8,6 +8,8 @@ spec:
     matchLabels:
       k8s:io.kubernetes.pod.namespace: {{.Namespace}}
   ingress:
-  - fromEndpoints: {}
+  - fromEndpoints:
+    - {}
   egress:
-  - toEndpoints: {}
+  - toEndpoints:
+    - {}
