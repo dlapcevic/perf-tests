@@ -19,4 +19,5 @@ spec:
       protocol: TCP
     to:
     - ipBlock:
-        cidr: {{.kubeAPIServerIP}}/32
+        cidr: 0.0.0.0/0
+        #cidr: {{.kubeAPIServerIP}}/32
