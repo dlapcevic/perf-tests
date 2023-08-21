@@ -75,15 +75,16 @@ const (
 	policyLoadFilePath                  = "manifests/policy-load.yaml"
 
 	// CCNP manifests
-	ccnpFileCRD                = "manifests/cnp/ccnp-crd.yaml"
-	ccnpFileAPIServer          = "manifests/cnp/ccnp-allow-apiserver.yaml"
-	ccnpFileDNS                = "manifests/cnp/ccnp-allow-dns.yaml"
-	ccnpFileMetadata           = "manifests/cnp/ccnp-allow-metadata-egress.yaml"
-	ccnpFileIngressTarget      = "manifests/cnp/ccnp-ingress-allow-target-pods.yaml"
-	ccnpFileEgressTarget       = "manifests/cnp/ccnp-egress-allow-target-pods.yaml"
-	ccnpFileDenyAll            = "manifests/cnp/ccnp-deny-all.yaml"
-	ccnpFileAllowIngressFromNS = "manifests/cnp/ccnp-for-all-allow-ingress-template.yaml"
-	ccnpFileAllowAllForNS      = "manifests/cnp/ccnp-allow-all-ingress-and-egress-template.yaml"
+	ccnpFileCRD                    = "manifests/cnp/ccnp-crd.yaml"
+	ccnpFileAPIServer              = "manifests/cnp/ccnp-allow-apiserver.yaml"
+	ccnpFileDNS                    = "manifests/cnp/ccnp-allow-dns.yaml"
+	ccnpFileMetadata               = "manifests/cnp/ccnp-allow-metadata-egress.yaml"
+	ccnpFileIngressTarget          = "manifests/cnp/ccnp-ingress-allow-target-pods.yaml"
+	ccnpFileEgressTarget           = "manifests/cnp/ccnp-egress-allow-target-pods.yaml"
+	ccnpFileDenyAll                = "manifests/cnp/ccnp-deny-all.yaml"
+	ccnpFileAllowIngressFromNS     = "manifests/cnp/ccnp-for-all-allow-ingress-template.yaml"
+	ccnpFileAllowAllForNS          = "manifests/cnp/ccnp-allow-all-ingress-and-egress-template.yaml"
+	ccnpFileIngressAllAllowAllCIDR = "manifests/cnp/ccnp-ingress-all-allow-all-cidr.yaml"
 
 	// ---
 
@@ -203,6 +204,10 @@ func (nps *networkPolicyEnforcementMeasurement) createCCNPs() error {
 	}
 
 	time.Sleep(10 * time.Second)
+
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileIngressAllAllowAllCIDR, map[string]interface{}{}); err != nil {
+		klog.Errorf("Error while applying %s: %v", ccnpFileIngressAllAllowAllCIDR, err)
+	}
 
 	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileDNS, map[string]interface{}{}); err != nil {
 		klog.Errorf("Error while applying %s: %v", ccnpFileDNS, err)

@@ -1,0 +1,10 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: ingress-all-allow-all-cidr
+spec:
+  description: A cluster-wide policy to allow all pods in all namespaces to receive traffic from all IPs outside of cluster
+  endpointSelector: {}
+  ingress:
+  - fromCIDRSet:
+    - cidr: 0.0.0.0/0
