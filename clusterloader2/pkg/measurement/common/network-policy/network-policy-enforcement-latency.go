@@ -246,7 +246,17 @@ func (nps *networkPolicyEnforcementMeasurement) createCCNPs() error {
 func (nps *networkPolicyEnforcementMeasurement) createCNPsAllowTestComponents() {
 	testNPTemplateMap := map[string]interface{}{}
 
-	ns := "cluster-loader"
+	ns := "kube-system"
+	setTemplateMapNameAndNS(testNPTemplateMap, fmt.Sprintf("allow-all-ingress-from-%s", ns), ns)
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAllowIngressFromNS, testNPTemplateMap); err != nil {
+		klog.Errorf("Error while applying %s, policy=%s: %v", ccnpFileAllowIngressFromNS, testNPTemplateMap["Name"], err)
+	}
+	testNPTemplateMap["Name"] = fmt.Sprintf("allow-all-ingress-egress-%s", ns)
+	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAllowAllForNS, testNPTemplateMap); err != nil {
+		klog.Errorf("Error while applying %s, policy=%s: %v", ccnpFileAllowAllForNS, testNPTemplateMap["Name"], err)
+	}
+
+	ns = "cluster-loader"
 	setTemplateMapNameAndNS(testNPTemplateMap, fmt.Sprintf("allow-all-ingress-from-%s", ns), ns)
 	if err := nps.framework.ApplyTemplatedManifests(manifestsFS, ccnpFileAllowIngressFromNS, testNPTemplateMap); err != nil {
 		klog.Errorf("Error while applying %s, policy=%s: %v", ccnpFileAllowIngressFromNS, testNPTemplateMap["Name"], err)
